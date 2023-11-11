@@ -89,6 +89,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "codegen"
+version = "0.1.0"
+dependencies = [
+ "hyperpolyglot",
+ "pcre2",
+ "phf_codegen",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -154,10 +165,7 @@ dependencies = [
  "num_cpus",
  "pcre2",
  "phf",
- "phf_codegen",
  "regex",
- "serde",
- "serde_yaml",
  "termcolor",
 ]
 
