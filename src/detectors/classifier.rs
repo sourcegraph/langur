@@ -21,7 +21,7 @@ pub fn classify(content: &str, candidates: &[&'static str]) -> &'static str {
         _ => candidates,
     };
 
-    let tokens: Vec<_> = polyglot_tokenizer::get_key_tokens(content)
+    let tokens: Vec<_> = crate::tokenizer::get_key_tokens(content)
         .filter(|token| token.len() <= MAX_TOKEN_BYTES)
         .collect();
 

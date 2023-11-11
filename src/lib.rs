@@ -12,8 +12,9 @@ use std::{
     sync::mpsc,
 };
 
-pub mod detectors;
-pub mod filters;
+pub(crate) mod detectors;
+pub(crate) mod filters;
+pub mod tokenizer;
 
 // Include the map that stores language info
 // static LANGUAGE_INFO: phf::Map<&'static str, Language> = ...;

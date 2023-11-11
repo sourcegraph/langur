@@ -5,6 +5,21 @@ use std::{
     str::CharIndices,
 };
 
+/// Tokenize the content and return only the identifiers and symbols from the langauge
+///
+/// # Examples
+/// ```
+/// let content = r#"let x = [5, "hello"];"#;
+/// let tokens: Vec<&str> = tokenizer::get_key_tokens(content).collect();
+/// assert_eq!(tokens, vec!["let", "x", "=", "[", ",", "]", ";"]);
+/// ```
+pub fn get_key_tokens(content: &str) -> impl Iterator<Item = &str> {
+    Tokenizer::new(content).tokens().filter_map(|t| match t {
+        Token::Ident(t) | Token::Symbol(t) => Some(t),
+        _ => None,
+    })
+}
+
 /// Token is an enum whose variants represent each type of possible Token returned from the
 /// [`Tokenizer`]. Block Comments and Strings hold both the start and end indicator for the Tokens.
 /// Line Comments hold the open indicator for the Tokens. See below for examples.
