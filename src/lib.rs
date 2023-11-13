@@ -17,7 +17,7 @@ pub mod filters;
 
 // Include the map that stores language info
 // static LANGUAGE_INFO: phf::Map<&'static str, Language> = ...;
-include!("codegen/language-info-map.rs");
+include!("generated/language_info_map.rs");
 
 const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 
@@ -295,6 +295,11 @@ mod tests {
     use std::fs;
     use std::io::prelude::*;
     use std::iter;
+    use std::path::PathBuf;
+
+    pub fn linguist_path(s: &str) -> PathBuf {
+        PathBuf::from("external/com_github_linguist").join(s)
+    }
 
     #[test]
     fn test_detect_filename() {
@@ -386,7 +391,7 @@ mod tests {
     fn test_detect_accuracy() {
         let mut total = 0;
         let mut correct = 0;
-        fs::read_dir("samples")
+        fs::read_dir(linguist_path("samples"))
             .unwrap()
             .map(|entry| entry.unwrap())
             .filter(|entry| entry.path().is_dir())

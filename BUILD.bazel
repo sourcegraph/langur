@@ -1,0 +1,35 @@
+load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+
+rust_binary(
+    name = "hyply",
+    srcs = ["src/main.rs"],
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True) + ["//:hyperpolyglot"],
+)
+
+rust_library(
+    name = "hyperpolyglot",
+    srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs", "//:generated"], allow_empty = False),
+    compile_data = ["//:generated"],
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True) + ["//crates/polyglot_tokenizer"],
+    crate_name = "hyperpolyglot",
+    crate_root = "src/lib.rs",
+    visibility = ["//visibility:public"],
+)
+
+rust_test(
+    name = "unit_test",
+    crate = ":hyperpolyglot",
+    data = ["@com_github_linguist//:samples"],
+    size = "small",
+)
+
+filegroup(
+    name = "generated",
+    srcs = glob(["src/generated/**/*.rs"], allow_empty=False),
+    visibility = ["//visibility:public"],
+)

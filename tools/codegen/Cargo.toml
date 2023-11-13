@@ -14,5 +14,3 @@ phf_codegen = { workspace = true }
 polyglot_tokenizer = { workspace = true }
 serde = { version = "1.0.105", features = ["derive"] }
 serde_yaml = "0.8"
-
-hyperpolyglot = { path = "../.." }
