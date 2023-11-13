@@ -1,0 +1,18 @@
+[package]
+name = "polyglot_tokenizer"
+version = "0.2.1"
+authors = ["Connor Monks <monkslc@gmail.com>"]
+edition = "2018"
+default-run = "plytok"
+description = "A generic programming language tokenizer"
+homepage = "https://github.com/monkslc/hyperpolyglot/tree/master/crates/polyglot_tokenizer"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/monkslc/hyperpolyglot/tree/master/crates/polyglot_tokenizer"
+
+[dependencies]
+circular-queue = "0.2.6"
+
+[[bin]]
+name = "plytok"
+path = "src/main.rs"

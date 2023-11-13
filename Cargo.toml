@@ -12,7 +12,6 @@ repository = "https://github.com/monkslc/hyperpolyglot"
 
 [dependencies]
 clap = "2.33.0"
-circular-queue = "0.2.6"
 ignore = "0.4.1"
 lazy_static = "1.4.0"
 num_cpus = "1.13.0"
@@ -20,6 +19,7 @@ phf = { workspace = true }
 pcre2 = { workspace = true }
 regex = "1.3.5"
 termcolor = "1.1.0"
+polyglot_tokenizer = { workspace = true }
 
 [[bin]]
 name = "hyply"
@@ -27,6 +27,13 @@ path = "src/main.rs"
 
 [workspace]
 members = [
+  # The tokenizer is a separate crate to avoid a dependency cycle.
+  # Specifically, the tokenizer code is used by the codegen tools,
+  # which produces files used by the hyperpolyglot library.
+  #
+  # So merging the tokenizer into the hyperpolyglot library would
+  # create a cycle.
+  "crates/polyglot_tokenizer",
   "tools/codegen",
 ]
 
@@ -35,3 +42,4 @@ pcre2 = "0.2.3"
 # Keep the two versions below in sync
 phf = "0.11.1"
 phf_codegen = "0.11.1"
+polyglot_tokenizer = { path = "crates/polyglot_tokenizer" }

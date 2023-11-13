@@ -95,6 +95,7 @@ dependencies = [
  "hyperpolyglot",
  "pcre2",
  "phf_codegen",
+ "polyglot_tokenizer",
  "serde",
  "serde_yaml",
 ]
@@ -158,13 +159,13 @@ dependencies = [
 name = "hyperpolyglot"
 version = "0.1.7"
 dependencies = [
- "circular-queue",
  "clap",
  "ignore",
  "lazy_static",
  "num_cpus",
  "pcre2",
  "phf",
+ "polyglot_tokenizer",
  "regex",
  "termcolor",
 ]
@@ -303,6 +304,13 @@ name = "pkg-config"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
+
+[[package]]
+name = "polyglot_tokenizer"
+version = "0.2.1"
+dependencies = [
+ "circular-queue",
+]
 
 [[package]]
 name = "proc-macro2"
