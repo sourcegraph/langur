@@ -3,7 +3,12 @@
 include!("../generated/filename_language_map.rs");
 
 pub fn get_language_from_filename(filename: &str) -> Option<&'static str> {
-    FILENAMES.get(filename).copied()
+    if let Some(slice) = FILENAMES.get(filename) {
+        if slice.len() == 1 {
+            return Some(slice[0])
+        }
+    }
+    None
 }
 
 #[cfg(test)]
