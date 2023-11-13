@@ -204,11 +204,9 @@ fn main() {
 }
 
 fn write_language_list(languages: &LanguageMap) {
-    let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
-
     let mut languages: Vec<String> = languages.keys().map(|language| language.clone()).collect();
     languages.sort();
-
+    let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
     writeln!(
         &mut file,
         "static LANGUAGES: &[&'static str] = &[\n    \"{}\"\n];",
@@ -218,8 +216,6 @@ fn write_language_list(languages: &LanguageMap) {
 }
 
 fn write_language_info(languages: &LanguageMap) {
-    let mut file = BufWriter::new(File::create(LANGUAGE_INFO_FILE).unwrap());
-
     let mut language_info_map = PhfMap::new();
     for (language_name, language) in languages.iter() {
         language_info_map.entry(
@@ -227,18 +223,17 @@ fn write_language_info(languages: &LanguageMap) {
             &language.to_domain_object_code(&language_name[..])[..],
         );
     }
-
+    let built_map = language_info_map.build();
+    let mut file = BufWriter::new(File::create(LANGUAGE_INFO_FILE).unwrap());
     writeln!(
         &mut file,
         "static LANGUAGE_INFO: phf::Map<&'static str, Language> =\n{};\n",
-        language_info_map.build()
+        built_map,
     )
     .unwrap();
 }
 
 fn create_filename_map(languages: &LanguageMap) {
-    let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
-
     let mut filename_to_language_map = PhfMap::new();
     for (language_name, language) in languages.iter() {
         if let Some(filenames) = &language.filenames {
@@ -248,17 +243,17 @@ fn create_filename_map(languages: &LanguageMap) {
             }
         }
     }
-
+    let built_map = filename_to_language_map.build();
+    let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
     writeln!(
         &mut file,
         "static FILENAMES: phf::Map<&'static str, &'static str> =\n{};\n",
-        filename_to_language_map.build()
+        built_map,
     )
     .unwrap();
 }
 
 fn create_interpreter_map(languages: &LanguageMap) {
-    let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
 
     let mut temp_map: HashMap<&String, Vec<&String>> = HashMap::new();
     for (language_name, language) in languages.iter() {
@@ -282,17 +277,17 @@ fn create_interpreter_map(languages: &LanguageMap) {
         interpreter_to_language_map.entry(&interpreter[..], &format!("&{:?}", languages)[..]);
     }
 
+    let built_map = interpreter_to_language_map.build();
+    let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
     writeln!(
         &mut file,
         "static INTERPRETERS: phf::Map<&'static str, &[&str]> =\n{};\n",
-        interpreter_to_language_map.build()
+        built_map,
     )
     .unwrap();
 }
 
 fn create_extension_map(languages: &LanguageMap) {
-    let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
-
     let mut temp_map: HashMap<String, Vec<&String>> = HashMap::new();
     for (language_name, language) in languages.iter() {
         if let Some(extensions) = &language.extensions {
@@ -316,17 +311,17 @@ fn create_extension_map(languages: &LanguageMap) {
         extension_to_language_map.entry(&extension[..], &format!("&{:?}", languages)[..]);
     }
 
+    let built_map = extension_to_language_map.build();
+    let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
     writeln!(
         &mut file,
         "static EXTENSIONS: phf::Map<&'static str, &[&str]> =\n{};\n",
-        extension_to_language_map.build()
+        built_map,
     )
     .unwrap();
 }
 
 fn create_disambiguation_heuristics_map(heuristics: Heuristics) {
-    let mut file = BufWriter::new(File::create(DISAMBIGUATION_HEURISTICS_FILE).unwrap());
-
     let mut temp_map: HashMap<String, String> = HashMap::new();
     for mut dis in heuristics.disambiguations.into_iter() {
         for ext in dis.extensions.iter() {
@@ -350,10 +345,12 @@ fn create_disambiguation_heuristics_map(heuristics: Heuristics) {
         disambiguation_heuristic_map.entry(&key[..], &value[..]);
     }
 
+    let built_map = disambiguation_heuristic_map.build();
+    let mut file = BufWriter::new(File::create(DISAMBIGUATION_HEURISTICS_FILE).unwrap());
     writeln!(
         &mut file,
         "static DISAMBIGUATIONS: phf::Map<&'static str, &'static [Rule]> =\n{};\n",
-        disambiguation_heuristic_map.build()
+        built_map,
     )
     .unwrap();
 }
@@ -409,7 +406,6 @@ fn train_classifier() {
         });
 
     // Write token log probabilities
-    let mut file = BufWriter::new(File::create(TOKEN_LOG_PROBABILITY_FILE).unwrap());
     let mut language_token_log_probabilities = PhfMap::new();
     for (language, token_count_map) in temp_token_count.iter() {
         let total_tokens = *temp_total_tokens_count.get(language).unwrap() as f64;
@@ -425,10 +421,12 @@ fn train_classifier() {
         language_token_log_probabilities.entry(&language[..], &codegen_log_prob_map[..]);
     }
 
+    let built_map = language_token_log_probabilities.build();
+    let mut file = BufWriter::new(File::create(TOKEN_LOG_PROBABILITY_FILE).unwrap());
     writeln!(
         &mut file,
         "static TOKEN_LOG_PROBABILITIES: phf::Map<&'static str, phf::Map<&'static str, f64>> =\n{};\n",
-        language_token_log_probabilities.build()
+        built_map,
     )
     .unwrap();
 }
