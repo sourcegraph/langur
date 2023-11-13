@@ -3,20 +3,20 @@ load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
 
 rust_binary(
-    name = "plytok",
+    name = "langur_tokenizer",
     srcs = ["src/main.rs"],
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
-    deps = all_crate_deps(normal = True) + [":polyglot_tokenizer"],
+    deps = all_crate_deps(normal = True) + [":langur_tokenizer_lib"],
 )
 
 rust_library(
-    name = "polyglot_tokenizer",
+    name = "langur_tokenizer_lib",
     srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"], allow_empty = False),
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
     deps = all_crate_deps(normal = True),
-    crate_name = "polyglot_tokenizer",
+    crate_name = "langur_tokenizer",
     crate_root = "src/lib.rs",
     visibility = ["//visibility:public"],
 )

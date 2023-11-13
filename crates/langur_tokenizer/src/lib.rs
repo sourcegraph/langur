@@ -5,9 +5,9 @@ pub use tokenizer::{Token, Tokenizer};
 ///
 /// # Examples
 /// ```
-/// use polyglot_tokenizer;
+/// use langur_tokenizer;
 /// let content = r#"let x = [5, "hello"];"#;
-/// let tokens: Vec<&str> = polyglot_tokenizer::get_key_tokens(content).collect();
+/// let tokens: Vec<&str> = langur_tokenizer::get_key_tokens(content).collect();
 /// assert_eq!(tokens, vec!["let", "x", "=", "[", ",", "]", ";"]);
 /// ```
 pub fn get_key_tokens(content: &str) -> impl Iterator<Item = &str> {

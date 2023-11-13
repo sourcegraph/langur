@@ -1,5 +1,5 @@
-//! # Hyperpolyglot
-//! `hyperpolyglot` is a fast programming language detector.
+//! # Langur
+//! `langur` is a fast programming language detector.
 
 use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use std::{
@@ -26,7 +26,7 @@ const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 ///
 /// # Examples
 /// ```
-/// use hyperpolyglot::{Language, LanguageType};
+/// use langur::{Language, LanguageType};
 /// use std::convert::TryFrom;
 ///
 /// let language = Language::try_from("Rust").unwrap();
@@ -127,7 +127,7 @@ impl Detection {
 /// # Examples
 /// ```
 /// use std::path::Path;
-/// use hyperpolyglot::{detect, Detection};
+/// use langur::{detect, Detection};
 ///
 /// let path = Path::new("src/bin/main.rs");
 /// let language = detect(path).unwrap().unwrap();
@@ -213,7 +213,7 @@ fn truncate_to_char_boundary(s: &str, mut max: usize) -> &str {
 ///
 /// # Examples
 /// ```
-/// use hyperpolyglot::get_language_breakdown;
+/// use langur::get_language_breakdown;
 /// let breakdown = get_language_breakdown("src/");
 /// let total_detections = breakdown.iter().fold(0, |sum, (language, detections)| sum + detections.len());
 /// println!("Total files detected: {}", total_detections);
@@ -225,7 +225,7 @@ pub fn get_language_breakdown<P: AsRef<Path>>(
     let override_builder = filters::add_documentation_override(override_builder);
     let override_builder = filters::add_vendor_override(override_builder);
 
-    let num_threads = env::var_os("HYPLY_THREADS")
+    let num_threads = env::var_os("LANGUR_THREADS")
         .and_then(|threads| threads.into_string().ok())
         .and_then(|threads| threads.parse().ok())
         .unwrap_or_else(num_cpus::get);

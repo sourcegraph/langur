@@ -391,7 +391,7 @@ fn train_classifier() {
             // Add better error handling here in the future but unure of the best
             // way to handle it now
             let tokens =
-                polyglot_tokenizer::get_key_tokens(std::str::from_utf8(&content[..]).unwrap_or(""));
+                langur_tokenizer::get_key_tokens(std::str::from_utf8(&content[..]).unwrap_or(""));
 
             for token in tokens {
                 if token.len() <= MAX_TOKEN_BYTES {

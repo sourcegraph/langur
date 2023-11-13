@@ -92,9 +92,9 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
+ "langur_tokenizer",
  "pcre2",
  "phf_codegen",
- "polyglot_tokenizer",
  "serde",
  "serde_yaml",
 ]
@@ -155,21 +155,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperpolyglot"
-version = "0.1.7"
-dependencies = [
- "clap",
- "ignore",
- "lazy_static",
- "num_cpus",
- "pcre2",
- "phf",
- "polyglot_tokenizer",
- "regex",
- "termcolor",
-]
-
-[[package]]
 name = "ignore"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -186,6 +171,28 @@ dependencies = [
  "thread_local",
  "walkdir",
  "winapi-util",
+]
+
+[[package]]
+name = "langur"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "ignore",
+ "langur_tokenizer",
+ "lazy_static",
+ "num_cpus",
+ "pcre2",
+ "phf",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "langur_tokenizer"
+version = "0.0.0"
+dependencies = [
+ "circular-queue",
 ]
 
 [[package]]
@@ -303,13 +310,6 @@ name = "pkg-config"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
-
-[[package]]
-name = "polyglot_tokenizer"
-version = "0.2.1"
-dependencies = [
- "circular-queue",
-]
 
 [[package]]
 name = "proc-macro2"

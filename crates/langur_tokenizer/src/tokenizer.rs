@@ -11,7 +11,7 @@ use std::{
 ///
 /// # Examples
 /// ```
-/// use polyglot_tokenizer::{Token, Tokenizer};
+/// use langur_tokenizer::{Token, Tokenizer};
 ///
 /// let content = "/* Block Comment */";
 /// let tokens: Vec<Token> = Tokenizer::new(content).tokens().collect();
@@ -20,7 +20,7 @@ use std::{
 /// assert_eq!(tokens, expected);
 /// ```
 /// ```
-/// use polyglot_tokenizer::{Token, Tokenizer};
+/// use langur_tokenizer::{Token, Tokenizer};
 ///
 /// let content = "// Line Comment";
 /// let tokens: Vec<Token> = Tokenizer::new(content).tokens().collect();
@@ -42,7 +42,7 @@ pub enum Token<'a> {
 ///
 /// # Examples
 /// ```
-/// use polyglot_tokenizer::{Token, Tokenizer};
+/// use langur_tokenizer::{Token, Tokenizer};
 ///
 /// let content = r#"let x = 5;"#;
 /// let tokens: Vec<Token> = Tokenizer::new(content).tokens().collect();

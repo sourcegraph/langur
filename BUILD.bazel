@@ -2,28 +2,28 @@ load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
 
 rust_binary(
-    name = "hyply",
+    name = "langur",
     srcs = ["src/main.rs"],
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
-    deps = all_crate_deps(normal = True) + ["//:hyperpolyglot"],
+    deps = all_crate_deps(normal = True) + ["//:langur_lib"],
 )
 
 rust_library(
-    name = "hyperpolyglot",
+    name = "langur_lib",
     srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs", "//:generated"], allow_empty = False),
     compile_data = ["//:generated"],
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
-    deps = all_crate_deps(normal = True) + ["//crates/polyglot_tokenizer"],
-    crate_name = "hyperpolyglot",
+    deps = all_crate_deps(normal = True) + ["//crates/langur_tokenizer:langur_tokenizer_lib"],
+    crate_name = "langur",
     crate_root = "src/lib.rs",
     visibility = ["//visibility:public"],
 )
 
 rust_test(
     name = "unit_test",
-    crate = ":hyperpolyglot",
+    crate = ":langur_lib",
     data = ["@com_github_linguist//:samples"],
     size = "small",
 )

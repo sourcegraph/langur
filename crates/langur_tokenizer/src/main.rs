@@ -4,7 +4,7 @@ use std::{
     io::{ErrorKind, Read},
 };
 
-use polyglot_tokenizer::Tokenizer;
+use langur_tokenizer::Tokenizer;
 
 fn main() {
     if let Some(file_name) = env::args().skip(1).next() {
