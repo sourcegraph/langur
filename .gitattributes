@@ -1,2 +1,3 @@
 Cargo.lock linguist-generated=true
 Cargo.Bazel.lock linguist-generated=true
+src/generated/**.rs linguist-generated=true
