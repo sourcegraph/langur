@@ -50,6 +50,7 @@ load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_regi
 
 rules_rust_dependencies()
 
+# Keep version in sync with .github/workflows/ci.yml
 rust_version = "1.68.0"
 
 rust_register_toolchains(

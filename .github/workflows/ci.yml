@@ -35,7 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
+      # Keep version in sync with WORKSPACE file
+    - uses: dtolnay/rust-toolchain@1.68.0
     - name: Cargo cache
       uses: actions/cache@v3
       with:
