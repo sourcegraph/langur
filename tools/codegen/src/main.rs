@@ -233,21 +233,31 @@ fn write_language_info(languages: &LanguageMap) {
     .unwrap();
 }
 
+/// Create a mapping from filename -> list of language strings.
+///
+/// For example, HOSTS as a filename is used by both the INI language
+/// and the 'Hosts File' language.
 fn create_filename_map(languages: &LanguageMap) {
-    let mut filename_to_language_map = PhfMap::new();
+    let mut temp_map: HashMap<&str, Vec<&str>> = HashMap::new();
     for (language_name, language) in languages.iter() {
         if let Some(filenames) = &language.filenames {
             for filename in filenames.iter() {
-                filename_to_language_map
-                    .entry(&filename[..], &format!("\"{}\"", language_name)[..]);
+                temp_map.entry(&filename).or_default().push(&language_name);
             }
         }
     }
+
+    let mut filename_to_language_map = PhfMap::new();
+    for (filename, languages) in temp_map.iter_mut() {
+        languages.sort();
+        filename_to_language_map.entry(filename, &format!("&{:?}", languages));
+    }
+
     let built_map = filename_to_language_map.build();
     let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
     writeln!(
         &mut file,
-        "static FILENAMES: phf::Map<&'static str, &'static str> =\n{};\n",
+        "static FILENAMES: phf::Map<&'static str, &[&'static str]> =\n{};\n",
         built_map,
     )
     .unwrap();
@@ -281,7 +291,7 @@ fn create_interpreter_map(languages: &LanguageMap) {
     let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
     writeln!(
         &mut file,
-        "static INTERPRETERS: phf::Map<&'static str, &[&str]> =\n{};\n",
+        "static INTERPRETERS: phf::Map<&'static str, &[&'static str]> =\n{};\n",
         built_map,
     )
     .unwrap();
@@ -315,7 +325,7 @@ fn create_extension_map(languages: &LanguageMap) {
     let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
     writeln!(
         &mut file,
-        "static EXTENSIONS: phf::Map<&'static str, &[&str]> =\n{};\n",
+        "static EXTENSIONS: phf::Map<&'static str, &[&'static str]> =\n{};\n",
         built_map,
     )
     .unwrap();
