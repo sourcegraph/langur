@@ -1,14 +1,14 @@
 [package]
-name = "hyperpolyglot"
-version = "0.1.7"
-authors = ["Connor Monks <monkslc@gmail.com>"]
-edition = "2018"
-default-run = "hyply"
-description = "A fast programming language detector"
-homepage = "https://github.com/monkslc/hyperpolyglot"
+name = "langur"
+version = "0.0.0"
+authors = ["Varun Gandhi <varun.gandhi@sourcegraph.com", "Connor Monks <monkslc@gmail.com>"]
+edition = "2021"
+default-run = "langur"
+description = "Programming language detection library and CLI"
+homepage = "https://github.com/sourcegraph/langur"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/monkslc/hyperpolyglot"
+repository = "https://github.com/sourcegraph/langur"
 
 [dependencies]
 clap = "2.33.0"
@@ -19,21 +19,21 @@ phf = { workspace = true }
 pcre2 = { workspace = true }
 regex = "1.3.5"
 termcolor = "1.1.0"
-polyglot_tokenizer = { workspace = true }
+langur_tokenizer = { workspace = true }
 
 [[bin]]
-name = "hyply"
+name = "langur"
 path = "src/main.rs"
 
 [workspace]
 members = [
   # The tokenizer is a separate crate to avoid a dependency cycle.
   # Specifically, the tokenizer code is used by the codegen tools,
-  # which produces files used by the hyperpolyglot library.
+  # which produces files used by the langur library.
   #
-  # So merging the tokenizer into the hyperpolyglot library would
+  # So merging the tokenizer into the langur library would
   # create a cycle.
-  "crates/polyglot_tokenizer",
+  "crates/langur_tokenizer",
   "tools/codegen",
 ]
 
@@ -42,4 +42,4 @@ pcre2 = "0.2.3"
 # Keep the two versions below in sync
 phf = "0.11.1"
 phf_codegen = "0.11.1"
-polyglot_tokenizer = { path = "crates/polyglot_tokenizer" }
+langur_tokenizer = { path = "crates/langur_tokenizer" }

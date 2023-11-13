@@ -69,7 +69,7 @@ crates_repository(
     lockfile = "//:Cargo.Bazel.lock",
     manifests = [
         "//:Cargo.toml",
-        "//crates/polyglot_tokenizer:Cargo.toml",
+        "//crates/langur_tokenizer:Cargo.toml",
         "//tools/codegen:Cargo.toml",
     ],
 )

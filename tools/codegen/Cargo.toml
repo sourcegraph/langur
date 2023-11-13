@@ -1,16 +1,13 @@
 [package]
 name = "codegen"
 version = "0.1.0"
-authors = ["Connor Monks <monkslc@gmail.com>"]
-edition = "2018"
+authors = ["Varun Gandhi <varun.gandhi@sourcegraph.com", "Connor Monks <monkslc@gmail.com>"]
+edition = "2021"
 default-run = "codegen"
-homepage = "https://github.com/monkslc/hyperpolyglot"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/monkslc/hyperpolyglot"
 
 [dependencies]
 pcre2 = { workspace = true }
 phf_codegen = { workspace = true }
-polyglot_tokenizer = { workspace = true }
+langur_tokenizer = { workspace = true }
 serde = { version = "1.0.105", features = ["derive"] }
 serde_yaml = "0.8"

@@ -10,7 +10,7 @@ use std::{
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use hyperpolyglot::{get_language_breakdown, Detection, Language, LanguageType};
+use langur::{get_language_breakdown, Detection, Language, LanguageType};
 
 struct CLIOptions {
     color: bool,
@@ -82,9 +82,9 @@ fn main() {
 }
 
 fn get_cli<'a, 'b>() -> App<'a, 'b> {
-    App::new("Hyperpolyglot")
-        .version("0.1.7")
-        .about("Hyperpolyglot is a programming language detector. It supports detecting the programming language of a file or the programming language makeup of a directory.")
+    App::new("Langur")
+        .version("0.1.0")
+        .about("Langur is a programming language detector. It supports detecting the programming language of a file or the programming language makeup of a directory.")
         .arg(Arg::with_name("PATH").index(1).default_value("."))
         .arg(
             Arg::with_name("file-breakdown")
@@ -113,7 +113,7 @@ fn get_cli<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(
             Arg::with_name("no-color").short("n").long("no-color").help(
-                "Don't color code the output of the breakdowns. This is useful when piping/redirecting the output of hyperpolyglot.",
+                "Don't color code the output of the breakdowns. This is useful when piping/redirecting the output.",
             ),
         )
 }

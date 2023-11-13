@@ -1,0 +1,18 @@
+[package]
+name = "langur_tokenizer"
+version = "0.0.0"
+authors = ["Connor Monks <monkslc@gmail.com>"]
+edition = "2021"
+default-run = "langur_tokenizer"
+description = "A generic programming language tokenizer meant for internal use in Langur"
+homepage = "https://github.com/sourcegraph/langur/tree/master/crates/langur_tokenizer"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/sourcegraph/langur/tree/master/crates/langur_tokenizer"
+
+[dependencies]
+circular-queue = "0.2.6"
+
+[[bin]]
+name = "langur_tokenizer"
+path = "src/main.rs"

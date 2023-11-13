@@ -6,7 +6,7 @@ rust_binary(
     srcs = ["src/main.rs"],
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
-    deps = all_crate_deps(normal = True) + ["//crates/polyglot_tokenizer"],
+    deps = all_crate_deps(normal = True) + ["//crates/langur_tokenizer:langur_tokenizer_lib"],
     data = ["@com_github_linguist//:samples", "@com_github_linguist//:yaml_config", "//:generated"],
     visibility = ["//visibility:public"],
     tags = ["manual"],
