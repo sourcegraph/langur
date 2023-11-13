@@ -1,0 +1,8 @@
+# The linguist repo contains directories with spaces in the names,
+# which aren't handled well by Bazel. This flag works around that
+# limitation.
+#
+# https://github.com/bazelbuild/bazel/issues/4327#issuecomment-1664520608
+build --experimental_inprocess_symlink_creation
+
+test --test_verbose_timeout_warnings

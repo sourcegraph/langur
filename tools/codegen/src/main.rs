@@ -172,16 +172,17 @@ enum MaybeMany<T> {
     One(T),
 }
 
-const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/codegen/disambiguation-heuristics-map.rs";
-const EXTENSION_MAP_FILE: &str = "src/codegen/extension-language-map.rs";
-const FILENAME_MAP_FILE: &str = "src/codegen/filename-language-map.rs";
-const INTERPRETER_MAP_FILE: &str = "src/codegen/interpreter-language-map.rs";
-const LANGUAGE_INFO_FILE: &str = "src/codegen/language-info-map.rs";
-const LANGUAGE_LIST_FILE: &str = "src/codegen/languages.rs";
-const TOKEN_LOG_PROBABILITY_FILE: &str = "src/codegen/token-log-probabilities.rs";
+const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuristics_map.rs";
+const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
+const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
+const INTERPRETER_MAP_FILE: &str = "src/generated/interpreter_language_map.rs";
+const LANGUAGE_INFO_FILE: &str = "src/generated/language_info_map.rs";
+const LANGUAGE_LIST_FILE: &str = "src/generated/languages.rs";
+const TOKEN_LOG_PROBABILITY_FILE: &str = "src/generated/token_log_probabilities.rs";
 
-const HEURISTICS_SOURCE_FILE: &str = "heuristics.yml";
-const LANGUAGE_SOURCE_FILE: &str = "languages.yml";
+const HEURISTICS_SOURCE_FILE: &str = "external/com_github_linguist/lib/linguist/heuristics.yml";
+const LANGUAGE_SOURCE_FILE: &str = "external/com_github_linguist/lib/linguist/languages.yml";
+const SAMPLES_DIR: &str = "external/com_github_linguist/samples";
 
 const MAX_TOKEN_BYTES: usize = 32;
 
@@ -205,12 +206,13 @@ fn main() {
 fn write_language_list(languages: &LanguageMap) {
     let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
 
-    let languages: Vec<String> = languages.keys().map(|language| language.clone()).collect();
+    let mut languages: Vec<String> = languages.keys().map(|language| language.clone()).collect();
+    languages.sort();
 
     writeln!(
         &mut file,
-        "static LANGUAGES: &[&'static str] = &[\"{}\"];",
-        languages.join("\",\"")
+        "static LANGUAGES: &[&'static str] = &[\n    \"{}\"\n];",
+        languages.join("\",\n    \"")
     )
     .unwrap();
 }
@@ -275,7 +277,8 @@ fn create_interpreter_map(languages: &LanguageMap) {
     }
 
     let mut interpreter_to_language_map = PhfMap::new();
-    for (interpreter, languages) in temp_map.iter() {
+    for (interpreter, languages) in temp_map.iter_mut() {
+        languages.sort();
         interpreter_to_language_map.entry(&interpreter[..], &format!("&{:?}", languages)[..]);
     }
 
@@ -308,7 +311,8 @@ fn create_extension_map(languages: &LanguageMap) {
     }
 
     let mut extension_to_language_map = PhfMap::new();
-    for (extension, languages) in temp_map.iter() {
+    for (extension, languages) in temp_map.iter_mut() {
+        languages.sort();
         extension_to_language_map.entry(&extension[..], &format!("&{:?}", languages)[..]);
     }
 
@@ -358,7 +362,7 @@ fn train_classifier() {
     let mut temp_token_count: HashMap<String, HashMap<String, i32>> = HashMap::new();
     let mut temp_total_tokens_count = HashMap::new();
 
-    fs::read_dir("samples")
+    fs::read_dir(SAMPLES_DIR)
         .unwrap()
         .map(|entry| entry.unwrap())
         .filter(|entry| entry.path().is_dir())
@@ -413,7 +417,9 @@ fn train_classifier() {
         for (token, token_count) in token_count_map.iter() {
             let probability = (*token_count as f64) / (total_tokens);
             let log_probability = probability.ln();
-            token_log_probabilities.entry(&token[..], &format!("{}f64", log_probability)[..]);
+            // 8 digits is somewhat arbitrarily chosen to avoid
+            // differences across environments.
+            token_log_probabilities.entry(&token[..], &format!("{:.8}f64", log_probability)[..]);
         }
         let codegen_log_prob_map = format!("{}", token_log_probabilities.build());
         language_token_log_probabilities.entry(&language[..], &codegen_log_prob_map[..]);

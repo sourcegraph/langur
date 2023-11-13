@@ -1,5 +1,5 @@
 {
-  "checksum": "3943f51a86aba569e5c71e4024eff9574e500e78bd91517fdd25b94693076bcc",
+  "checksum": "848eec9c88b32bd19aec9ebc65559bc5423a85016f589d51416886a702dfaffc",
   "crates": {
     "aho-corasick 0.7.10": {
       "name": "aho-corasick",
@@ -815,10 +815,6 @@
         "deps": {
           "common": [
             {
-              "id": "circular-queue 0.2.6",
-              "target": "circular_queue"
-            },
-            {
               "id": "clap 2.33.0",
               "target": "clap"
             },
@@ -1605,6 +1601,40 @@
         "version": "0.3.17"
       },
       "license": "MIT/Apache-2.0"
+    },
+    "polyglot_tokenizer 0.2.1": {
+      "name": "polyglot_tokenizer",
+      "version": "0.2.1",
+      "repository": null,
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "polyglot_tokenizer",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "polyglot_tokenizer",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "circular-queue 0.2.6",
+              "target": "circular_queue"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.1"
+      },
+      "license": "MIT OR Apache-2.0"
     },
     "proc-macro2 1.0.9": {
       "name": "proc-macro2",
@@ -2834,7 +2864,8 @@
   "binary_crates": [],
   "workspace_members": {
     "codegen 0.1.0": "tools/codegen",
-    "hyperpolyglot 0.1.7": ""
+    "hyperpolyglot 0.1.7": "",
+    "polyglot_tokenizer 0.2.1": "crates/polyglot_tokenizer"
   },
   "conditions": {
     "aarch64-apple-darwin": [

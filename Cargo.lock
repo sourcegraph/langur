@@ -92,7 +92,6 @@ dependencies = [
 name = "codegen"
 version = "0.1.0"
 dependencies = [
- "hyperpolyglot",
  "pcre2",
  "phf_codegen",
  "polyglot_tokenizer",

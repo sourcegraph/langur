@@ -1,0 +1,45 @@
+# Create a workflow for running `bazel test`
+name: CI
+on:
+  push:
+    branches:
+    - 'main'
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: bazelbuild/setup-bazelisk@v2
+    - name: Mount bazel cache  # Optional
+      uses: actions/cache@v3
+      with:
+        path: "~/.cache/bazel"
+        key: ${{ runner.os }}-${{ hashFiles('Cargo.Bazel.lock') }}-bazel
+    - name: 'Check codegen'
+      run: |
+        bazel run //tools/codegen
+        if ! git diff --quiet; then
+          git diff
+          echo ""
+          echo "-------------------------------------------"
+          echo "Re-run 'bazel run //tools/codegen' and push"
+          echo "-------------------------------------------"
+          exit 1
+        fi
+    - name: 'Run tests'
+      run: bazel test //... --test_output=all --verbose_failures
+
+  cargo_build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Cargo cache
+      uses: actions/cache@v3
+      with:
+        path: "target"
+        key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-cargo
+    - name: 'Build'
+      run: cargo build --workspace
