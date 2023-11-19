@@ -43,7 +43,7 @@ impl Pattern {
     }
 }
 
-pub fn get_languages_from_heuristics(
+pub(crate) fn get_languages_from_heuristics(
     extension: &str,
     candidates: &[&'static str],
     content: &str,

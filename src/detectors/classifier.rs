@@ -10,12 +10,12 @@ const MAX_TOKEN_BYTES: usize = 32;
 const DEFAULT_LOG_PROB: f64 = -19f64;
 
 #[derive(Debug)]
-pub struct LanguageScore {
+struct LanguageScore {
     language: &'static str,
     score: f64,
 }
 
-pub fn classify(content: &str, candidates: &[&'static str]) -> &'static str {
+pub(crate) fn classify(content: &str, candidates: &[&'static str]) -> &'static str {
     let candidates = match candidates.len() {
         0 => LANGUAGES,
         _ => candidates,
@@ -54,7 +54,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    pub fn linguist_path(s: &str) -> PathBuf {
+    fn linguist_path(s: &str) -> PathBuf {
         PathBuf::from("external/com_github_linguist").join(s)
     }
 

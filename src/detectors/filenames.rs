@@ -2,7 +2,7 @@
 // static FILENAMES: phf::Map<&'static str, &'static str> = ...;
 include!("../generated/filename_language_map.rs");
 
-pub fn get_language_from_filename(filename: &str) -> Option<&'static str> {
+pub(crate) fn get_language_from_filename(filename: &str) -> Option<&'static str> {
     if let Some(slice) = FILENAMES.get(filename) {
         if slice.len() == 1 {
             return Some(slice[0])

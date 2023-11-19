@@ -2,7 +2,7 @@
 // static EXTENSIONS: phf::Map<&'static str, &[&str]> = ...;
 include!("../generated/extension_language_map.rs");
 
-pub fn get_languages_from_extension(extension: &str) -> Vec<&'static str> {
+pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<&'static str> {
     let languages = EXTENSIONS
         .get(extension)
         .map(|languages| languages.to_vec());
@@ -13,7 +13,7 @@ pub fn get_languages_from_extension(extension: &str) -> Vec<&'static str> {
     }
 }
 
-pub fn get_extension(filename: &str) -> Option<&'static str> {
+pub(crate) fn get_extension(filename: &str) -> Option<&'static str> {
     let filename = if filename.starts_with('.') {
         &filename[1..]
     } else {

@@ -1,6 +1,6 @@
 use ignore::overrides::OverrideBuilder;
 
-pub fn add_vendor_override(mut builder: OverrideBuilder) -> OverrideBuilder {
+pub(crate) fn add_vendor_override(mut builder: OverrideBuilder) -> OverrideBuilder {
     // Caches
     builder.add("!**/cache/**").unwrap();
 

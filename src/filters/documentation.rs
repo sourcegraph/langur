@@ -1,6 +1,6 @@
 use ignore::overrides::OverrideBuilder;
 
-pub fn add_documentation_override(mut builder: OverrideBuilder) -> OverrideBuilder {
+pub(crate) fn add_documentation_override(mut builder: OverrideBuilder) -> OverrideBuilder {
     // Documentation directories
     builder.add("!**/[Dd]ocs/**").unwrap();
     builder.add("!**/[Dd]oc/**").unwrap();

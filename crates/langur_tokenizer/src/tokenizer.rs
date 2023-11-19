@@ -55,15 +55,18 @@ pub enum Token<'a> {
 /// ];
 /// assert_eq!(tokens, expected);
 /// ```
+#[doc(hidden)]
 pub struct Tokenizer<'a> {
     content: &'a str,
 }
 
 impl<'a> Tokenizer<'a> {
+    #[doc(hidden)]
     pub fn new(content: &'a str) -> Self {
         Tokenizer { content }
     }
 
+    #[doc(hidden)]
     pub fn tokens(&self) -> Tokens<'a> {
         Tokens {
             backlog: VecDeque::new(),
@@ -74,6 +77,7 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
+#[doc(hidden)]
 pub struct Tokens<'a> {
     backlog: VecDeque<(usize, char)>,
     chars: Peekable<CharIndices<'a>>,

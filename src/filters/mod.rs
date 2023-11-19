@@ -1,5 +1,5 @@
 mod documentation;
 mod vendor;
 
-pub use documentation::add_documentation_override;
-pub use vendor::add_vendor_override;
+pub(crate) use documentation::add_documentation_override;
+pub(crate) use vendor::add_vendor_override;
