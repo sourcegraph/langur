@@ -6,3 +6,6 @@
 build --experimental_inprocess_symlink_creation
 
 test --test_verbose_timeout_warnings
+
+build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect
+build --output_groups=+clippy_checks

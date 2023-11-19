@@ -14,8 +14,8 @@ pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<&'static str>
 }
 
 pub(crate) fn get_extension(filename: &str) -> Option<&'static str> {
-    let filename = if filename.starts_with('.') {
-        &filename[1..]
+    let filename = if let Some(filename_no_dot) = filename.strip_prefix('.') {
+        filename_no_dot
     } else {
         filename
     };

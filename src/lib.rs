@@ -142,15 +142,15 @@ fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
         None => return Ok(None),
     };
 
-    let candidate = filename.and_then(|filename| detectors::get_language_from_filename(filename));
+    let candidate = filename.and_then(detectors::get_language_from_filename);
     if let Some(candidate) = candidate {
         return Ok(Some(Detection::Filename(candidate)));
     };
 
-    let extension = filename.and_then(|filename| detectors::get_extension(filename));
+    let extension = filename.and_then(detectors::get_extension);
 
     let candidates = extension
-        .map(|ext| detectors::get_languages_from_extension(ext))
+        .map(detectors::get_languages_from_extension)
         .unwrap_or_else(Vec::new);
 
     if candidates.len() == 1 {
@@ -178,7 +178,7 @@ fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
     let candidates = if candidates.len() > 1 {
         if let Some(extension) = extension {
             let languages =
-                detectors::get_languages_from_heuristics(&extension[..], &candidates, &content);
+                detectors::get_languages_from_heuristics(extension, &candidates, content);
             filter_candidates(candidates, languages)
         } else {
             candidates
@@ -191,7 +191,7 @@ fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
         0 => Ok(None),
         1 => Ok(Some(Detection::Heuristics(candidates[0]))),
         _ => Ok(Some(Detection::Classifier(detectors::classify(
-            &content,
+            content,
             &candidates,
         )))),
     }
@@ -324,7 +324,7 @@ mod tests {
     fn test_detect_shebang() {
         let path = Path::new("a");
         let mut file = File::create(path).unwrap();
-        file.write(b"#!/usr/bin/python").unwrap();
+        file.write_all(b"#!/usr/bin/python").unwrap();
         file.flush().unwrap();
 
         let detected_language = detect(path).unwrap().unwrap();
@@ -338,7 +338,7 @@ mod tests {
     fn test_detect_heuristics() {
         let path = Path::new("a.es");
         let mut file = File::create(path).unwrap();
-        file.write(b"'use strict'").unwrap();
+        file.write_all(b"'use strict'").unwrap();
         file.flush().unwrap();
 
         let detected_language = detect(path).unwrap().unwrap();
@@ -352,7 +352,7 @@ mod tests {
     fn test_detect_classify() {
         let path = Path::new("peep.rs");
         let mut file = File::create(path).unwrap();
-        file.write(
+        file.write_all(
             b"
             match optional {
                 Some(pattern) => println!(\"Hello World\"),
@@ -373,7 +373,7 @@ mod tests {
     fn test_detect_none() {
         let path = Path::new("y");
         let mut file = File::create(path).unwrap();
-        file.write(
+        file.write_all(
             b"
             use std::io;
             fn main() {
@@ -398,7 +398,7 @@ mod tests {
             .unwrap()
             .map(|entry| entry.unwrap())
             .filter(|entry| entry.path().is_dir())
-            .map(|language_dir| {
+            .flat_map(|language_dir| {
                 let path = language_dir.path();
                 let language = path.file_name().unwrap();
                 let language = language.to_string_lossy().into_owned();
@@ -411,7 +411,6 @@ mod tests {
                 let language_iter = iter::repeat(language);
                 file_paths.zip(language_iter)
             })
-            .flatten()
             .for_each(|(file, language)| {
                 // Skip the files we can't detect. The reason the detect function fails on these is
                 // because of a heuristic added to .h files that defaults to C if none of the

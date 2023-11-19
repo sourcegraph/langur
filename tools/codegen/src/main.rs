@@ -153,13 +153,13 @@ impl PatternDTO {
                 if let Some(pattern) = named_patterns.get(pattern_name) {
                     // Assume that all named patterns are positive
                     let pattern = PatternDTO::Positive(pattern.clone());
-                    return pattern.to_domain_object_code(named_patterns);
+                    pattern.to_domain_object_code(named_patterns)
                 } else {
                     panic!(
                         "Named pattern: {} not found in named pattern map",
                         pattern_name
-                    );
-                };
+                    )
+                }
             }
         }
     }
@@ -204,12 +204,12 @@ fn main() {
 }
 
 fn write_language_list(languages: &LanguageMap) {
-    let mut languages: Vec<String> = languages.keys().map(|language| language.clone()).collect();
+    let mut languages: Vec<String> = languages.keys().cloned().collect();
     languages.sort();
     let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
     writeln!(
         &mut file,
-        "static LANGUAGES: &[&'static str] = &[\n    \"{}\"\n];",
+        "static LANGUAGES: &[&str] = &[\n    \"{}\"\n];",
         languages.join("\",\n    \"")
     )
     .unwrap();
@@ -242,7 +242,7 @@ fn create_filename_map(languages: &LanguageMap) {
     for (language_name, language) in languages.iter() {
         if let Some(filenames) = &language.filenames {
             for filename in filenames.iter() {
-                temp_map.entry(&filename).or_default().push(&language_name);
+                temp_map.entry(filename).or_default().push(language_name);
             }
         }
     }
@@ -373,7 +373,7 @@ fn train_classifier() {
         .unwrap()
         .map(|entry| entry.unwrap())
         .filter(|entry| entry.path().is_dir())
-        .map(|language_dir| {
+        .flat_map(|language_dir| {
             let path = language_dir.path();
             let language = path.file_name().unwrap();
             let language = language.to_string_lossy().into_owned();
@@ -390,7 +390,6 @@ fn train_classifier() {
             let language_iter = iter::repeat(language);
             file_paths.zip(language_iter)
         })
-        .flatten()
         .for_each(|(entry, language)| {
             let content = fs::read(entry).unwrap();
 
@@ -433,6 +432,7 @@ fn train_classifier() {
 
     let built_map = language_token_log_probabilities.build();
     let mut file = BufWriter::new(File::create(TOKEN_LOG_PROBABILITY_FILE).unwrap());
+    file.write_all("#[allow(clippy::approx_constant)]\n\n".as_bytes()).unwrap();
     writeln!(
         &mut file,
         "static TOKEN_LOG_PROBABILITIES: phf::Map<&'static str, phf::Map<&'static str, f64>> =\n{};\n",
