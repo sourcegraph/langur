@@ -1,21 +1,158 @@
+#![allow(dead_code, unused, unused_variables)]
+
+use lazy_static::lazy_static;
 use pcre2::bytes::Regex as PCRERegex;
 use phf_codegen::Map as PhfMap;
+use phf_shared::*;
+use regex::Regex;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{self, File},
     io::{BufWriter, Write},
-    iter,
+    iter, rc::Rc,
+    hash::{Hash, Hasher}, fmt::{Display, Write as _},
 };
 
-type LanguageMap = HashMap<String, LanguageDTO>;
+#[derive(Clone, Eq)]
+struct LanguageId {
+    value: i64,
+    identifier: Rc<Identifier>,
+}
+
+impl LanguageId {
+    fn slice_to_string(ids: &[LanguageId]) -> String {
+        let mut buf = String::new();
+        buf.push_str("&[");
+        for id in ids.iter() {
+            buf.push_str("Language::");
+            buf.write_fmt(format_args!("{}", id.identifier.as_ref())).unwrap();
+            buf.push(',');
+        }
+        buf.push(']');
+        buf
+    }
+}
+
+impl PartialEq for LanguageId {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl PartialOrd for LanguageId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for LanguageId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.value.cmp(&other.value)
+    }
+}
+
+impl Hash for LanguageId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
+impl PhfHash for LanguageId {
+    fn phf_hash<H: Hasher>(&self, state: &mut H) {
+        self.value.phf_hash(state);
+    }
+}
+
+impl FmtConst for LanguageId {
+    fn fmt_const(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Language::")?;
+        self.identifier.fmt_const(f)
+    }
+}
+
+impl FmtConst for Identifier {
+    fn fmt_const(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt(f)
+    }
+}
+
+type ParsedLanguageMap = HashMap<String, LanguageDTO>;
 type NamedPatterns = HashMap<String, MaybeMany<String>>;
+
+struct LanguageTable {
+    id_to_data_map: HashMap<LanguageId, LanguageDataWithName>,
+    sorted_names: Vec<(String, LanguageId)>,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct Identifier {
+    text: String,
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Cannot use a raw identifier here
+        // https://internals.rust-lang.org/t/raw-identifiers-dont-work-for-all-identifiers/9094
+        if self.text.starts_with(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+            || self.text == "Self" {
+            f.write_fmt(format_args!("Extra_{}", &self.text))
+        } else {
+            f.write_str(&self.text)
+        }
+    }
+}
+
+impl Identifier {
+    fn new(mut s: &str) -> Identifier {
+        // WARNING: Changes to this function may break public facing API,
+        // so be extra careful!
+        lazy_static! {
+            static ref NON_IDENTIFIER_CHAR_RE: Regex =
+                Regex::new("[^a-zA-Z0-9_]").unwrap();
+        }
+        let mut add_sharp = false;
+        if let Some(suffix) = s.strip_suffix('#') {
+            s = suffix;
+            add_sharp = true;
+        }
+        let mut buf = NON_IDENTIFIER_CHAR_RE.replace_all(s, "_").to_string();
+        if add_sharp {
+            buf.push_str("Sharp");
+        }
+        Identifier { text: buf }
+    }    
+}
+
+impl LanguageTable {
+    fn new(parsed_map: ParsedLanguageMap) -> LanguageTable {
+        let mut out = HashMap::with_capacity(parsed_map.len());
+        let mut names = Vec::with_capacity(parsed_map.len());
+        for (original_name, dto) in parsed_map.into_iter() {
+            let identifier = Rc::new(Identifier::new(&original_name));
+            let id = LanguageId { value: dto.language_id, identifier: identifier.clone() };
+            names.push((original_name.clone(), id.clone()));
+            let old_value = out.insert(id, LanguageDataWithName { original_name, dto });
+            if let Some(old_data_with_name) = old_value {
+                panic!("Language ID: {} is repeated twice", old_data_with_name.dto.language_id);
+            }
+        }
+        names.sort();
+        LanguageTable { id_to_data_map: out, sorted_names: names }
+    }
+}
+
+struct LanguageDataWithName {
+    original_name: String,
+    dto: LanguageDTO,
+}
 
 #[derive(Deserialize)]
 struct LanguageDTO {
     filenames: Option<Vec<String>>,
     interpreters: Option<Vec<String>>,
     extensions: Option<Vec<String>>,
+    language_id: i64,
     #[serde(rename(deserialize = "type"))]
     language_type: LanguageType,
     color: Option<String>,
@@ -25,7 +162,7 @@ struct LanguageDTO {
 impl LanguageDTO {
     fn to_domain_object_code(&self, name: &str) -> String {
         format!(
-            "Language {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
+            "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
             name,
             self.language_type.to_domain_object_code(),
             self.color,
@@ -176,7 +313,7 @@ const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuri
 const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
 const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
 const INTERPRETER_MAP_FILE: &str = "src/generated/interpreter_language_map.rs";
-const LANGUAGE_INFO_FILE: &str = "src/generated/language_info_map.rs";
+const LANGUAGE_DATA_FILE: &str = "src/generated/language_data_map.rs";
 const LANGUAGE_LIST_FILE: &str = "src/generated/languages.rs";
 const TOKEN_LOG_PROBABILITY_FILE: &str = "src/generated/token_log_probabilities.rs";
 
@@ -187,14 +324,15 @@ const SAMPLES_DIR: &str = "external/com_github_linguist/samples";
 const MAX_TOKEN_BYTES: usize = 32;
 
 fn main() {
-    let languages: LanguageMap =
+    let parsed_map: ParsedLanguageMap =
         serde_yaml::from_reader(File::open(LANGUAGE_SOURCE_FILE).unwrap()).unwrap();
+    let language_table = LanguageTable::new(parsed_map);
 
-    write_language_list(&languages);
-    write_language_info(&languages);
-    create_filename_map(&languages);
-    create_interpreter_map(&languages);
-    create_extension_map(&languages);
+    language_table.write_language_list();
+    language_table.write_language_data();
+    language_table.create_filename_map();
+    language_table.create_extension_map();
+    language_table.create_interpreter_map();
 
     let heuristics: Heuristics =
         serde_yaml::from_str(&fs::read_to_string(HEURISTICS_SOURCE_FILE).unwrap()[..]).unwrap();
@@ -203,133 +341,171 @@ fn main() {
     train_classifier();
 }
 
-fn write_language_list(languages: &LanguageMap) {
-    let mut languages: Vec<String> = languages.keys().cloned().collect();
-    languages.sort();
-    let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static LANGUAGES: &[&str] = &[\n    \"{}\"\n];",
-        languages.join("\",\n    \"")
-    )
-    .unwrap();
-}
-
-fn write_language_info(languages: &LanguageMap) {
-    let mut language_info_map = PhfMap::new();
-    for (language_name, language) in languages.iter() {
-        language_info_map.entry(
-            &language_name[..],
-            &language.to_domain_object_code(&language_name[..])[..],
-        );
-    }
-    let built_map = language_info_map.build();
-    let mut file = BufWriter::new(File::create(LANGUAGE_INFO_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static LANGUAGE_INFO: phf::Map<&'static str, Language> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
-}
-
-/// Create a mapping from filename -> list of language strings.
-///
-/// For example, HOSTS as a filename is used by both the INI language
-/// and the 'Hosts File' language.
-fn create_filename_map(languages: &LanguageMap) {
-    let mut temp_map: HashMap<&str, Vec<&str>> = HashMap::new();
-    for (language_name, language) in languages.iter() {
-        if let Some(filenames) = &language.filenames {
-            for filename in filenames.iter() {
-                temp_map.entry(filename).or_default().push(language_name);
-            }
+impl LanguageTable {
+    fn write_language_list(&self) {
+        let mut enum_branches = Vec::with_capacity(self.id_to_data_map.len());
+        let mut i64_to_id_map = PhfMap::new();
+        for (_, id) in self.sorted_names.iter() {
+            enum_branches.push(format!("{} = {}", id.identifier.as_ref(), id.value));
+            i64_to_id_map.entry(id.value, &format!("Language::{}", id.identifier.as_ref()));
         }
+    
+        let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
+        writeln!(
+            &mut file,
+"
+#[allow(non_camel_case_types)]
+#[repr(C)]
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub enum Language {{
+    {}
+}}
+
+impl TryFrom<i64> for Language {{
+    type Error = ();
+    fn try_from(id: i64) -> Result<Self, Self::Error> {{
+        match I64_TO_LANGUAGE_MAP.get(&id) {{
+            Some(language) => Ok(*language),
+            None => Err(()),
+        }}
+    }}
+}}
+
+// Deliberately private; other modules should use try_from
+static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
+",
+            // "static LANGUAGES: &[&str] = &[\n    \"{}\"\n];",
+            enum_branches.join(",\n    "),
+            i64_to_id_map.build(),
+        )
+        .unwrap();
     }
 
-    let mut filename_to_language_map = PhfMap::new();
-    for (filename, languages) in temp_map.iter_mut() {
-        languages.sort();
-        filename_to_language_map.entry(filename, &format!("&{:?}", languages));
+    fn write_language_data(&self) {
+        let mut language_info_map = PhfMap::new();
+        for (language_name, id) in self.sorted_names.iter() {
+            let info = self.id_to_data_map.get(id).unwrap();
+            language_info_map.entry(
+                id,
+                &info.dto.to_domain_object_code(&language_name[..])[..],
+            );
+        }
+        let built_map = language_info_map.build();
+        let mut file = BufWriter::new(File::create(LANGUAGE_DATA_FILE).unwrap());
+        writeln!(
+            &mut file,
+            "
+static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
+{};
+",
+            built_map,
+        )
+        .unwrap();    
     }
 
-    let built_map = filename_to_language_map.build();
-    let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static FILENAMES: phf::Map<&'static str, &[&'static str]> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
-}
-
-fn create_interpreter_map(languages: &LanguageMap) {
-
-    let mut temp_map: HashMap<&String, Vec<&String>> = HashMap::new();
-    for (language_name, language) in languages.iter() {
-        if let Some(interpreters) = &language.interpreters {
-            for interpreter in interpreters.iter() {
-                match temp_map.get_mut(interpreter) {
-                    Some(entry) => {
-                        entry.push(language_name);
-                    }
-                    None => {
-                        temp_map.insert(interpreter, vec![language_name]);
-                    }
+    /// Create a mapping from filename -> list of language strings.
+    ///
+    /// For example, HOSTS as a filename is used by both the INI language
+    /// and the 'Hosts File' language.
+    fn create_filename_map(&self) {
+        let mut temp_map: HashMap<&str, Vec<LanguageId>> = HashMap::new();
+        for (language_name, id) in self.sorted_names.iter() {
+            if let Some(filenames) = &self.id_to_data_map.get(id).unwrap().dto.filenames {
+                for filename in filenames.iter() {
+                    temp_map.entry(filename).or_default().push(id.clone());
                 }
             }
         }
+
+        let mut filename_to_language_map = PhfMap::new();
+        for (filename, ids) in temp_map.iter_mut() {
+            ids.sort();
+            filename_to_language_map.entry(
+                filename, &LanguageId::slice_to_string(ids));
+        }
+
+        let built_map = filename_to_language_map.build();
+        let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
+        writeln!(
+            &mut file,
+            "
+use crate::Language;
+
+static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[Language]> =
+{};
+",
+            built_map,
+        )
+        .unwrap();
     }
 
-    let mut interpreter_to_language_map = PhfMap::new();
-    for (interpreter, languages) in temp_map.iter_mut() {
-        languages.sort();
-        interpreter_to_language_map.entry(&interpreter[..], &format!("&{:?}", languages)[..]);
-    }
-
-    let built_map = interpreter_to_language_map.build();
-    let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static INTERPRETERS: phf::Map<&'static str, &[&'static str]> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
-}
-
-fn create_extension_map(languages: &LanguageMap) {
-    let mut temp_map: HashMap<String, Vec<&String>> = HashMap::new();
-    for (language_name, language) in languages.iter() {
-        if let Some(extensions) = &language.extensions {
-            for extension in extensions.iter() {
-                let extension = extension.clone().to_ascii_lowercase();
-                match temp_map.get_mut(&extension) {
-                    Some(entry) => {
-                        entry.push(language_name);
-                    }
-                    None => {
-                        temp_map.insert(extension.clone(), vec![language_name]);
-                    }
+    fn create_interpreter_map(&self) {
+        let mut temp_map: HashMap<&str, Vec<LanguageId>> = HashMap::new();
+        for (language_name, id) in self.sorted_names.iter() {
+            if let Some(interpreters) = &self.id_to_data_map.get(id).unwrap().dto.interpreters {
+                for interpreter in interpreters.iter() {
+                    temp_map.entry(interpreter).or_default().push(id.clone());
                 }
             }
         }
-    }
+    
+        let mut interpreter_to_language_map = PhfMap::new();
+        for (interpreter, ids) in temp_map.iter_mut() {
+            ids.sort();
+            interpreter_to_language_map.entry(
+                interpreter, &LanguageId::slice_to_string(ids));
+        }
+    
+        let built_map = interpreter_to_language_map.build();
+        let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
+        writeln!(
+            &mut file,
+            "
+use crate::Language;
 
-    let mut extension_to_language_map = PhfMap::new();
-    for (extension, languages) in temp_map.iter_mut() {
-        languages.sort();
-        extension_to_language_map.entry(&extension[..], &format!("&{:?}", languages)[..]);
+static INTERPRETERS: phf::Map<&'static str, &[Language]> =
+{};
+",
+            built_map,
+        )
+        .unwrap();
     }
+    
+    fn create_extension_map(&self) {
+        let mut temp_map: HashMap<String, Vec<LanguageId>> = HashMap::new();
+        for (language_name, id) in self.sorted_names.iter() {
+            if let Some(extensions) = &self.id_to_data_map.get(id).unwrap().dto.extensions {
+                for extension in extensions.iter() {
+                    let extension = extension.clone().to_ascii_lowercase();
+                    temp_map.entry(extension).or_default().push(id.clone());
+                }
+            }
+        }
+    
+        let mut extension_to_language_map = PhfMap::new();
+        for (extension, ids) in temp_map.iter_mut() {
+            ids.sort();
+            extension_to_language_map.entry(
+                extension, &LanguageId::slice_to_string(ids));
+        }
+    
+        let built_map = extension_to_language_map.build();
+        let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
+        writeln!(
+            &mut file,
+            "
+use crate::Language;
 
-    let built_map = extension_to_language_map.build();
-    let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static EXTENSIONS: phf::Map<&'static str, &[&'static str]> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
+static EXTENSIONS: phf::Map<&'static str, &[Language]> =
+{};
+",
+            built_map,
+        )
+        .unwrap();
+    }
 }
+
 
 fn create_disambiguation_heuristics_map(heuristics: Heuristics) {
     let mut temp_map: HashMap<String, String> = HashMap::new();

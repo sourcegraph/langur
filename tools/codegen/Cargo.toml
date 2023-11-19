@@ -6,8 +6,11 @@ edition = "2021"
 default-run = "codegen"
 
 [dependencies]
+lazy_static = { workspace = true }
 pcre2 = { workspace = true }
 phf_codegen = { workspace = true }
+phf_shared = { workspace = true }
 langur_tokenizer = { workspace = true }
 serde = { version = "1.0.105", features = ["derive"] }
 serde_yaml = "0.8"
+regex = { workspace = true }

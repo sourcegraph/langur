@@ -12,7 +12,7 @@ use std::{
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::{get_language_breakdown, Detection, Language, LanguageType};
+use crate::{get_language_breakdown, Detection, LanguageData, LanguageType};
 
 struct CLIOptions {
     color: bool,
@@ -47,7 +47,7 @@ pub fn main() {
     let mut language_count: Vec<(&'static str, Vec<(Detection, PathBuf)>)> = breakdown
         .into_iter()
         .filter(|(language_name, _)| {
-            matches!(Language::try_from(*language_name).map(|l| l.language_type), 
+            matches!(LanguageData::try_from(*language_name).map(|l| l.language_type), 
                 Ok(LanguageType::Markup) | Ok(LanguageType::Programming))
         })
         .collect();

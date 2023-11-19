@@ -3,8 +3,6 @@
 include!("../generated/token_log_probabilities.rs");
 
 // Include the array of all possible languages
-// static LANGUAGES: &[&'static str] = ...;
-include!("../generated/languages.rs");
 
 const MAX_TOKEN_BYTES: usize = 32;
 const DEFAULT_LOG_PROB: f64 = -19f64;
@@ -15,11 +13,9 @@ struct LanguageScore {
     score: f64,
 }
 
-pub(crate) fn classify(content: &str, candidates: &[&'static str]) -> &'static str {
-    let candidates = match candidates.len() {
-        0 => LANGUAGES,
-        _ => candidates,
-    };
+/// Pre-condition: candidates.len() > 0
+pub(crate) fn classify(content: &str, candidates: &[crate::Language]) -> &'static str {
+    assert!(candidates.len() > 0);
 
     let tokens: Vec<_> = langur_tokenizer::get_key_tokens(content)
         .filter(|token| token.len() <= MAX_TOKEN_BYTES)

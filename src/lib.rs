@@ -18,9 +18,11 @@ pub mod filters;
 #[doc(hidden)]
 pub mod cli;
 
+include!("generated/languages.rs");
+
 // Include the map that stores language info
-// static LANGUAGE_INFO: phf::Map<&'static str, Language> = ...;
-include!("generated/language_info_map.rs");
+// static LANGUAGE_DATA_MAP: phf::Map<&'static str, Language> = ...;
+include!("generated/language_data_map.rs");
 
 const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 
@@ -48,7 +50,7 @@ const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 /// If try_from is called with a language returned from [`detect`] or [`get_language_breakdown`]
 /// the value is guaranteed to be there and can be unwrapped
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct Language {
+struct LanguageData {
     /// The name of the language
     pub name: &'static str,
     /// Type of language. ex/ Data, Programming, Markup, Prose
@@ -59,12 +61,12 @@ struct Language {
     pub group: Option<&'static str>,
 }
 
-impl TryFrom<&str> for Language {
-    type Error = &'static str;
-    fn try_from(name: &str) -> Result<Self, Self::Error> {
-        LANGUAGE_INFO.get(name).copied().ok_or("Language not found")
-    }
-}
+// impl TryFrom<&str> for LanguageData {
+//     type Error = &'static str;
+//     fn try_from(name: &str) -> Result<Self, Self::Error> {
+//         LANGUAGE_DATA_MAP.get(name).copied().ok_or("Language not found")
+//     }
+// }
 
 /// The set of possible language types
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
