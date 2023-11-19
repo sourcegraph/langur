@@ -1,6 +1,6 @@
-
-static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
-::phf::Map {
+static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {
+    use crate::Language;
+    ::phf::Map {
     key: 12913932095322966823,
     disps: &[
         (0, 19),
@@ -195,7 +195,7 @@ static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
         (Language::Soong, LanguageData { name: "Soong", language_type: LanguageType::Data, color: None, group: None }),
         (Language::Type_Language, LanguageData { name: "Type Language", language_type: LanguageType::Data, color: None, group: None }),
         (Language::Zephir, LanguageData { name: "Zephir", language_type: LanguageType::Programming, color: Some("#118f9e"), group: None }),
-        (Language::Objective_C__, LanguageData { name: "Objective-C++", language_type: LanguageType::Programming, color: Some("#6866fb"), group: None }),
+        (Language::Objective_Cpp, LanguageData { name: "Objective-C++", language_type: LanguageType::Programming, color: Some("#6866fb"), group: None }),
         (Language::Graph_Modeling_Language, LanguageData { name: "Graph Modeling Language", language_type: LanguageType::Data, color: None, group: None }),
         (Language::C_ObjDump, LanguageData { name: "C-ObjDump", language_type: LanguageType::Data, color: None, group: None }),
         (Language::Pod_6, LanguageData { name: "Pod 6", language_type: LanguageType::Prose, color: None, group: None }),
@@ -332,7 +332,7 @@ static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
         (Language::HiveQL, LanguageData { name: "HiveQL", language_type: LanguageType::Programming, color: Some("#dce200"), group: None }),
         (Language::NASL, LanguageData { name: "NASL", language_type: LanguageType::Programming, color: None, group: None }),
         (Language::NetLogo, LanguageData { name: "NetLogo", language_type: LanguageType::Programming, color: Some("#ff6375"), group: None }),
-        (Language::F_, LanguageData { name: "F*", language_type: LanguageType::Programming, color: Some("#572e30"), group: None }),
+        (Language::Fstar, LanguageData { name: "F*", language_type: LanguageType::Programming, color: Some("#572e30"), group: None }),
         (Language::Game_Maker_Language, LanguageData { name: "Game Maker Language", language_type: LanguageType::Programming, color: Some("#71b417"), group: None }),
         (Language::xBase, LanguageData { name: "xBase", language_type: LanguageType::Programming, color: Some("#403a40"), group: None }),
         (Language::KiCad_Schematic, LanguageData { name: "KiCad Schematic", language_type: LanguageType::Data, color: Some("#2f4aab"), group: None }),
@@ -392,7 +392,7 @@ static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
         (Language::Zimpl, LanguageData { name: "Zimpl", language_type: LanguageType::Programming, color: Some("#d67711"), group: None }),
         (Language::Fluent, LanguageData { name: "Fluent", language_type: LanguageType::Programming, color: Some("#ffcc33"), group: None }),
         (Language::IGOR_Pro, LanguageData { name: "IGOR Pro", language_type: LanguageType::Programming, color: Some("#0000cc"), group: None }),
-        (Language::C__, LanguageData { name: "C++", language_type: LanguageType::Programming, color: Some("#f34b7d"), group: None }),
+        (Language::Cpp, LanguageData { name: "C++", language_type: LanguageType::Programming, color: Some("#f34b7d"), group: None }),
         (Language::Lasso, LanguageData { name: "Lasso", language_type: LanguageType::Programming, color: Some("#999999"), group: None }),
         (Language::Visual_Basic_6_0, LanguageData { name: "Visual Basic 6.0", language_type: LanguageType::Programming, color: Some("#2c6353"), group: None }),
         (Language::YASnippet, LanguageData { name: "YASnippet", language_type: LanguageType::Markup, color: Some("#32AB90"), group: None }),
@@ -854,5 +854,6 @@ static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
         (Language::PostScript, LanguageData { name: "PostScript", language_type: LanguageType::Markup, color: Some("#da291c"), group: None }),
         (Language::PigLatin, LanguageData { name: "PigLatin", language_type: LanguageType::Programming, color: Some("#fcd7de"), group: None }),
     ],
+}
 };
 

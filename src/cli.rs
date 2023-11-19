@@ -12,7 +12,7 @@ use std::{
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::{get_language_breakdown, Detection, LanguageData, LanguageType};
+use crate::{get_language_breakdown, Detection, LanguageData, language::LanguageType};
 
 struct CLIOptions {
     color: bool,

@@ -5,9 +5,11 @@ use regex::Regex;
 // static INTERPRETERS: phf::Map<&'static str, &[&str]> = ...;
 include!("../generated/interpreter_language_map.rs");
 
+use crate::Language;
+
 pub(crate) fn get_languages_from_shebang<R: std::io::BufRead>(
     reader: R,
-) -> Result<Vec<&'static str>, std::io::Error> {
+) -> Result<Vec<Language>, std::io::Error> {
     let mut lines = reader.lines();
     let shebang_line = match lines.next() {
         Some(line) => line,

@@ -2,7 +2,9 @@
 // static EXTENSIONS: phf::Map<&'static str, &[&str]> = ...;
 include!("../generated/extension_language_map.rs");
 
-pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<&'static str> {
+use crate::Language;
+
+pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<Language> {
     let languages = EXTENSIONS
         .get(extension)
         .map(|languages| languages.to_vec());

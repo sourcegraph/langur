@@ -1,8 +1,6 @@
-
-use crate::Language;
-
-static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[Language]> =
-::phf::Map {
+static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[crate::Language]> = {
+    use crate::Language;
+    ::phf::Map {
     key: 12913932095322966823,
     disps: &[
         (0, 0),
@@ -434,5 +432,6 @@ static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[Language]> =
         ("test.me", &[Language::Text,]),
         (".kshrc", &[Language::Shell,]),
     ],
+}
 };
 

@@ -16,6 +16,7 @@ ignore = "0.4.1"
 lazy_static = { workspace = true }
 num_cpus = "1.13.0"
 phf = { workspace = true }
+phf_shared = { workspace = true }
 pcre2 = { workspace = true }
 regex = { workspace = true }
 termcolor = "1.1.0"

@@ -1,8 +1,6 @@
-
-use crate::Language;
-
-static INTERPRETERS: phf::Map<&'static str, &[Language]> =
-::phf::Map {
+static INTERPRETERS: phf::Map<&'static str, &[crate::Language]> = {
+    use crate::Language;
+    ::phf::Map {
     key: 12913932095322966823,
     disps: &[
         (4, 63),
@@ -181,5 +179,6 @@ static INTERPRETERS: phf::Map<&'static str, &[Language]> =
         ("tcc", &[Language::C,]),
         ("nodejs", &[Language::JavaScript,]),
     ],
+}
 };
 

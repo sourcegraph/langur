@@ -1,5 +1,5 @@
 // Include the map that contains the token log probabilities
-// static TOKEN_LOG_PROBABILITIES: phf::Map<&'static str, f64> = ...;
+// static TOKEN_LOG_PROBABILITIES: phf::Map<Language, f64> = ...;
 include!("../generated/token_log_probabilities.rs");
 
 // Include the array of all possible languages
@@ -7,14 +7,16 @@ include!("../generated/token_log_probabilities.rs");
 const MAX_TOKEN_BYTES: usize = 32;
 const DEFAULT_LOG_PROB: f64 = -19f64;
 
+use crate::Language;
+
 #[derive(Debug)]
 struct LanguageScore {
-    language: &'static str,
+    language: Language,
     score: f64,
 }
 
 /// Pre-condition: candidates.len() > 0
-pub(crate) fn classify(content: &str, candidates: &[crate::Language]) -> &'static str {
+pub(crate) fn classify(content: &str, candidates: &[Language]) -> Language {
     assert!(candidates.len() > 0);
 
     let tokens: Vec<_> = langur_tokenizer::get_key_tokens(content)
@@ -23,8 +25,8 @@ pub(crate) fn classify(content: &str, candidates: &[crate::Language]) -> &'stati
 
     let mut scored_candidates: Vec<LanguageScore> = candidates
         .iter()
-        .map(|language| {
-            let score = match TOKEN_LOG_PROBABILITIES.get(language) {
+        .map(|&language| {
+            let score = match TOKEN_LOG_PROBABILITIES.get(&language) {
                 Some(token_map) => tokens
                     .iter()
                     .map(|token| token_map.get(*token).copied().unwrap_or(DEFAULT_LOG_PROB))

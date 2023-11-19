@@ -83,6 +83,7 @@ type NamedPatterns = HashMap<String, MaybeMany<String>>;
 struct LanguageTable {
     id_to_data_map: HashMap<LanguageId, LanguageDataWithName>,
     sorted_names: Vec<(String, LanguageId)>,
+    parsed_map: ParsedLanguageMap,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -92,14 +93,7 @@ struct Identifier {
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Cannot use a raw identifier here
-        // https://internals.rust-lang.org/t/raw-identifiers-dont-work-for-all-identifiers/9094
-        if self.text.starts_with(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-            || self.text == "Self" {
-            f.write_fmt(format_args!("Extra_{}", &self.text))
-        } else {
-            f.write_str(&self.text)
-        }
+        f.write_str(&self.text)
     }
 }
 
@@ -111,6 +105,13 @@ impl Identifier {
             static ref NON_IDENTIFIER_CHAR_RE: Regex =
                 Regex::new("[^a-zA-Z0-9_]").unwrap();
         }
+        if s == "C++" {
+            return Identifier { text: "Cpp".to_owned() }
+        } else if s == "Objective-C++" {
+            return Identifier { text: "Objective_Cpp".to_owned() }
+        } else if s == "F*" {
+            return Identifier { text: "Fstar".to_owned() }
+        }
         let mut add_sharp = false;
         if let Some(suffix) = s.strip_suffix('#') {
             s = suffix;
@@ -120,6 +121,12 @@ impl Identifier {
         if add_sharp {
             buf.push_str("Sharp");
         }
+        // Cannot use a raw identifier here
+        // https://internals.rust-lang.org/t/raw-identifiers-dont-work-for-all-identifiers/9094
+        if buf.starts_with(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+            || buf == "Self" {
+            buf = format!("Extra_{}", buf);
+        }
         Identifier { text: buf }
     }    
 }
@@ -128,9 +135,8 @@ impl LanguageTable {
     fn new(parsed_map: ParsedLanguageMap) -> LanguageTable {
         let mut out = HashMap::with_capacity(parsed_map.len());
         let mut names = Vec::with_capacity(parsed_map.len());
-        for (original_name, dto) in parsed_map.into_iter() {
-            let identifier = Rc::new(Identifier::new(&original_name));
-            let id = LanguageId { value: dto.language_id, identifier: identifier.clone() };
+        for (original_name, dto) in parsed_map.clone().into_iter() {
+            let id = dto.id(&original_name);
             names.push((original_name.clone(), id.clone()));
             let old_value = out.insert(id, LanguageDataWithName { original_name, dto });
             if let Some(old_data_with_name) = old_value {
@@ -138,7 +144,7 @@ impl LanguageTable {
             }
         }
         names.sort();
-        LanguageTable { id_to_data_map: out, sorted_names: names }
+        LanguageTable { id_to_data_map: out, sorted_names: names, parsed_map }
     }
 }
 
@@ -147,7 +153,7 @@ struct LanguageDataWithName {
     dto: LanguageDTO,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct LanguageDTO {
     filenames: Option<Vec<String>>,
     interpreters: Option<Vec<String>>,
@@ -160,6 +166,10 @@ struct LanguageDTO {
 }
 
 impl LanguageDTO {
+    fn id(&self, name: &str) -> LanguageId {
+        LanguageId { value: self.language_id, identifier: Rc::new(Identifier::new(name)) }
+    }
+
     fn to_domain_object_code(&self, name: &str) -> String {
         format!(
             "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
@@ -171,7 +181,7 @@ impl LanguageDTO {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 enum LanguageType {
     #[serde(rename = "data")]
     Data,
@@ -189,38 +199,52 @@ impl LanguageType {
     }
 }
 
+
+
 #[derive(Deserialize)]
-struct Heuristics {
-    disambiguations: Vec<Disambiguation>,
+struct Heuristics<L> {
+    disambiguations: Vec<Disambiguation<L>>,
     named_patterns: NamedPatterns,
 }
 
 #[derive(Deserialize)]
-struct Disambiguation {
+struct Disambiguation<L> {
     extensions: Vec<String>,
-    rules: Vec<RuleDTO>,
+    rules: Vec<Rule<L>>,
 }
 
-impl Disambiguation {
-    fn to_domain_object_code(&self, named_patterns: &NamedPatterns) -> String {
-        let mut rules = String::new();
-        for rule in self.rules.iter() {
-            rules.push_str(format!("{},", rule.to_domain_object_code(named_patterns)).as_str());
+impl<L> Rule<L> {
+    fn map_language<A>(self, f: &dyn Fn(L) -> A) -> Rule<A> {
+        Rule {
+            language: self.language.map(f),
+            pattern: self.pattern,
         }
-        format!("&[{}]", rules)
     }
 }
 
-#[derive(Deserialize)]
-struct RuleDTO {
-    language: MaybeMany<String>,
+impl Disambiguation<LanguageId> {
+    fn to_domain_object_code(rules: &[Rule<LanguageId>], named_patterns: &NamedPatterns) -> String {
+        let mut buf = String::new();
+        buf.push_str("&[");
+        for rule in rules.iter() {
+            buf.push_str(rule.to_domain_object_code(named_patterns).as_str());
+            buf.push(',');
+        }
+        buf.push(']');
+        buf
+    }
+}
+
+#[derive(Clone, Deserialize)]
+struct Rule<L> {
+    language: MaybeMany<L>,
     #[serde(flatten)]
     pattern: Option<PatternDTO>,
 }
 
-impl RuleDTO {
+impl Rule<LanguageId> {
     fn to_domain_object_code(&self, named_patterns: &NamedPatterns) -> String {
-        let languages = match &self.language {
+        let ids = match &self.language {
             MaybeMany::Many(values) => values.clone(),
             MaybeMany::One(value) => vec![value.clone()],
         };
@@ -231,8 +255,8 @@ impl RuleDTO {
         };
 
         format!(
-            "Rule {{ languages: &[\"{}\"], pattern: {}}}",
-            languages.join("\",\""),
+            "Rule {{ languages: {}, pattern: {}}}",
+            LanguageId::slice_to_string(&ids),
             pattern_code
         )
     }
@@ -309,6 +333,15 @@ enum MaybeMany<T> {
     One(T),
 }
 
+impl<T> MaybeMany<T> {
+    fn map<A>(self, f: &dyn Fn(T) -> A) -> MaybeMany<A> {
+        match self {
+            Self::Many(vs) => MaybeMany::Many(vs.into_iter().map(f).collect()),
+            Self::One(t) => MaybeMany::One(f(t)),
+        }
+    }
+}
+
 const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuristics_map.rs";
 const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
 const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
@@ -334,11 +367,12 @@ fn main() {
     language_table.create_extension_map();
     language_table.create_interpreter_map();
 
-    let heuristics: Heuristics =
+    let heuristics: Heuristics<String> =
         serde_yaml::from_str(&fs::read_to_string(HEURISTICS_SOURCE_FILE).unwrap()[..]).unwrap();
-    create_disambiguation_heuristics_map(heuristics);
 
-    train_classifier();
+    language_table.create_disambiguation_heuristics_map(heuristics);
+
+    language_table.train_classifier();
 }
 
 impl LanguageTable {
@@ -360,16 +394,6 @@ impl LanguageTable {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Language {{
     {}
-}}
-
-impl TryFrom<i64> for Language {{
-    type Error = ();
-    fn try_from(id: i64) -> Result<Self, Self::Error> {{
-        match I64_TO_LANGUAGE_MAP.get(&id) {{
-            Some(language) => Ok(*language),
-            None => Err(()),
-        }}
-    }}
 }}
 
 // Deliberately private; other modules should use try_from
@@ -395,9 +419,10 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
         let mut file = BufWriter::new(File::create(LANGUAGE_DATA_FILE).unwrap());
         writeln!(
             &mut file,
-            "
-static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
-{};
+"static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {{
+    use crate::Language;
+    {}
+}};
 ",
             built_map,
         )
@@ -429,11 +454,10 @@ static LANGUAGE_DATA_MAP: phf::Map<Language, LanguageData> =
         let mut file = BufWriter::new(File::create(FILENAME_MAP_FILE).unwrap());
         writeln!(
             &mut file,
-            "
-use crate::Language;
-
-static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[Language]> =
-{};
+"static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[crate::Language]> = {{
+    use crate::Language;
+    {}
+}};
 ",
             built_map,
         )
@@ -461,11 +485,10 @@ static FILENAME_TO_LANGUAGE_MAP: phf::Map<&'static str, &[Language]> =
         let mut file = BufWriter::new(File::create(INTERPRETER_MAP_FILE).unwrap());
         writeln!(
             &mut file,
-            "
-use crate::Language;
-
-static INTERPRETERS: phf::Map<&'static str, &[Language]> =
-{};
+"static INTERPRETERS: phf::Map<&'static str, &[crate::Language]> = {{
+    use crate::Language;
+    {}
+}};
 ",
             built_map,
         )
@@ -494,125 +517,145 @@ static INTERPRETERS: phf::Map<&'static str, &[Language]> =
         let mut file = BufWriter::new(File::create(EXTENSION_MAP_FILE).unwrap());
         writeln!(
             &mut file,
-            "
-use crate::Language;
+"static EXTENSIONS: phf::Map<&'static str, &[crate::Language]> = {{
+    use crate::Language;
 
-static EXTENSIONS: phf::Map<&'static str, &[Language]> =
-{};
+    {}
+}};
 ",
             built_map,
         )
         .unwrap();
     }
-}
 
-
-fn create_disambiguation_heuristics_map(heuristics: Heuristics) {
-    let mut temp_map: HashMap<String, String> = HashMap::new();
-    for mut dis in heuristics.disambiguations.into_iter() {
-        for ext in dis.extensions.iter() {
-            // Adding a rule to default to C for .h if the Objective C and C++ patterns don't match
-            // The classifer was unreliable for distinguishing between C and C++ for .h
-            if ext == ".h" {
-                dis.rules.push(RuleDTO {
-                    language: MaybeMany::One(String::from("C")),
-                    pattern: None,
-                });
-            }
-            let extension = ext.clone().to_ascii_lowercase();
-            let key = extension;
-            let value = dis.to_domain_object_code(&heuristics.named_patterns);
-            temp_map.insert(key, value);
-        }
-    }
-
-    let mut disambiguation_heuristic_map = PhfMap::new();
-    for (key, value) in temp_map.iter() {
-        disambiguation_heuristic_map.entry(&key[..], &value[..]);
-    }
-
-    let built_map = disambiguation_heuristic_map.build();
-    let mut file = BufWriter::new(File::create(DISAMBIGUATION_HEURISTICS_FILE).unwrap());
-    writeln!(
-        &mut file,
-        "static DISAMBIGUATIONS: phf::Map<&'static str, &'static [Rule]> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
-}
-
-fn train_classifier() {
-    let mut temp_token_count: HashMap<String, HashMap<String, i32>> = HashMap::new();
-    let mut temp_total_tokens_count = HashMap::new();
-
-    fs::read_dir(SAMPLES_DIR)
-        .unwrap()
-        .map(|entry| entry.unwrap())
-        .filter(|entry| entry.path().is_dir())
-        .flat_map(|language_dir| {
-            let path = language_dir.path();
-            let language = path.file_name().unwrap();
-            let language = language.to_string_lossy().into_owned();
-            let language = match &language[..] {
-                "Fstar" => String::from("F*"),
-                _ => language,
-            };
-
-            let file_paths = fs::read_dir(language_dir.path())
-                .unwrap()
-                .map(|entry| entry.unwrap().path())
-                .filter(|path| path.is_file());
-
-            let language_iter = iter::repeat(language);
-            file_paths.zip(language_iter)
-        })
-        .for_each(|(entry, language)| {
-            let content = fs::read(entry).unwrap();
-
-            // When tokenizing an invalid utf8 string, just set it to ""
-            // Add better error handling here in the future but unure of the best
-            // way to handle it now
-            let tokens =
-                langur_tokenizer::get_key_tokens(std::str::from_utf8(&content[..]).unwrap_or(""));
-
-            for token in tokens {
-                if token.len() <= MAX_TOKEN_BYTES {
-                    let total_tokens = temp_total_tokens_count.entry(language.clone()).or_insert(0);
-                    *total_tokens += 1;
-
-                    let tokens_count = temp_token_count
-                        .entry(language.clone())
-                        .or_insert(HashMap::new());
-
-                    let count = tokens_count.entry(String::from(token)).or_insert(0);
-                    *count += 1;
+    fn train_classifier(&self) {
+        let mut temp_token_count: HashMap<LanguageId, HashMap<String, i32>> = HashMap::new();
+        let mut temp_total_tokens_count = HashMap::new();
+    
+        fs::read_dir(SAMPLES_DIR)
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| entry.path().is_dir())
+            .flat_map(|language_dir| {
+                let path = language_dir.path();
+                let language = path.file_name().unwrap();
+                let language = language.to_string_lossy().into_owned();
+                let language = match &language[..] {
+                    "Fstar" => String::from("F*"),
+                    _ => language,
+                };
+                let id = self.parsed_map.get(&language)
+                    .unwrap_or_else(|| panic!("missing entry for {}", language))
+                    .id(&language);
+    
+                let file_paths = fs::read_dir(language_dir.path())
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+                    .filter(|path| path.is_file());
+    
+                let id_iter = iter::repeat(id);
+                file_paths.zip(id_iter)
+            })
+            .for_each(|(entry, id)| {
+                let content = fs::read(entry).unwrap();
+    
+                // When tokenizing an invalid utf8 string, just set it to ""
+                // Add better error handling here in the future but unure of the best
+                // way to handle it now
+                let tokens =
+                    langur_tokenizer::get_key_tokens(std::str::from_utf8(&content[..]).unwrap_or(""));
+    
+                for token in tokens {
+                    if token.len() <= MAX_TOKEN_BYTES {
+                        let total_tokens = temp_total_tokens_count.entry(id.clone()).or_insert(0);
+                        *total_tokens += 1;
+    
+                        let tokens_count = temp_token_count
+                            .entry(id.clone())
+                            .or_insert(HashMap::new());
+    
+                        let count = tokens_count.entry(String::from(token)).or_insert(0);
+                        *count += 1;
+                    }
                 }
+            });
+    
+        // Write token log probabilities
+        let mut language_token_log_probabilities = PhfMap::new();
+        for (id, token_count_map) in temp_token_count.iter() {
+            let total_tokens = *temp_total_tokens_count.get(id).unwrap() as f64;
+            let mut token_log_probabilities = PhfMap::new();
+            for (token, token_count) in token_count_map.iter() {
+                let probability = (*token_count as f64) / (total_tokens);
+                let log_probability = probability.ln();
+                // 8 digits is somewhat arbitrarily chosen to avoid
+                // differences across environments.
+                token_log_probabilities.entry(&token[..], &format!("{:.8}f64", log_probability)[..]);
             }
-        });
-
-    // Write token log probabilities
-    let mut language_token_log_probabilities = PhfMap::new();
-    for (language, token_count_map) in temp_token_count.iter() {
-        let total_tokens = *temp_total_tokens_count.get(language).unwrap() as f64;
-        let mut token_log_probabilities = PhfMap::new();
-        for (token, token_count) in token_count_map.iter() {
-            let probability = (*token_count as f64) / (total_tokens);
-            let log_probability = probability.ln();
-            // 8 digits is somewhat arbitrarily chosen to avoid
-            // differences across environments.
-            token_log_probabilities.entry(&token[..], &format!("{:.8}f64", log_probability)[..]);
+            let codegen_log_prob_map = format!("{}", token_log_probabilities.build());
+            language_token_log_probabilities.entry(id, &codegen_log_prob_map[..]);
         }
-        let codegen_log_prob_map = format!("{}", token_log_probabilities.build());
-        language_token_log_probabilities.entry(&language[..], &codegen_log_prob_map[..]);
-    }
+    
+        let built_map = language_token_log_probabilities.build();
+        let mut file = BufWriter::new(File::create(TOKEN_LOG_PROBABILITY_FILE).unwrap());
+        file.write_all("#[allow(clippy::approx_constant)]\n\n".as_bytes()).unwrap();
+        writeln!(
+            &mut file,
+"static TOKEN_LOG_PROBABILITIES: phf::Map<crate::Language, phf::Map<&'static str, f64>> = {{
+    use crate::Language;
 
-    let built_map = language_token_log_probabilities.build();
-    let mut file = BufWriter::new(File::create(TOKEN_LOG_PROBABILITY_FILE).unwrap());
-    file.write_all("#[allow(clippy::approx_constant)]\n\n".as_bytes()).unwrap();
-    writeln!(
-        &mut file,
-        "static TOKEN_LOG_PROBABILITIES: phf::Map<&'static str, phf::Map<&'static str, f64>> =\n{};\n",
-        built_map,
-    )
-    .unwrap();
+    {}
+}};
+",
+            built_map,
+        )
+        .unwrap();
+    }    
+
+    fn create_disambiguation_heuristics_map(&self, heuristics: Heuristics<String>) {
+        let mut temp_map: HashMap<String, String> = HashMap::new();
+        for mut dis in heuristics.disambiguations.into_iter() {
+            let rules = dis.rules;
+            let extensions = dis.extensions;
+            for ext in extensions.iter() {
+                let extension = ext.clone().to_ascii_lowercase();
+                let key = extension;
+                // Adding a rule to default to C for .h if the Objective C and C++ patterns don't match
+                // The classifer was unreliable for distinguishing between C and C++ for .h
+                let rules: Vec<_> = 
+                    if ext == ".h" {
+                        let mut new_rules = rules.clone();
+                        new_rules.push(Rule {
+                            language: MaybeMany::One(String::from("C")),
+                            pattern: None,
+                        });
+                        new_rules
+                    } else {
+                        rules.clone()
+                    }.into_iter()
+                    .map(|r| r.map_language(&|lang_name| {
+                        self.parsed_map.get(&lang_name)
+                        .unwrap_or_else(|| panic!("missing entry for {}", lang_name))
+                        .id(&lang_name)
+                    }))
+                    .collect();
+                let value = Disambiguation::to_domain_object_code(&rules, &heuristics.named_patterns);
+                temp_map.insert(key, value);
+            }
+        }
+    
+        let mut disambiguation_heuristic_map = PhfMap::new();
+        for (key, value) in temp_map.iter() {
+            disambiguation_heuristic_map.entry(&key[..], &value[..]);
+        }
+    
+        let built_map = disambiguation_heuristic_map.build();
+        let mut file = BufWriter::new(File::create(DISAMBIGUATION_HEURISTICS_FILE).unwrap());
+        writeln!(
+            &mut file,
+            "static DISAMBIGUATIONS: phf::Map<&'static str, &'static [Rule]> =\n{};\n",
+            built_map,
+        )
+        .unwrap();
+    }
 }

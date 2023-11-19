@@ -71,7 +71,7 @@ pub enum Language {
     Browserslist = 153503348,
     C = 41,
     CSharp = 42,
-    C__ = 43,
+    Cpp = 43,
     C_ObjDump = 44,
     C2hs_Haskell = 45,
     CAP_CDS = 390788699,
@@ -173,7 +173,7 @@ pub enum Language {
     Erlang = 104,
     Euphoria = 880693982,
     FSharp = 105,
-    F_ = 336943375,
+    Fstar = 336943375,
     FIGlet_Font = 686129783,
     FLUX = 106,
     Factor = 108,
@@ -417,7 +417,7 @@ pub enum Language {
     Object_Data_Instance_Notation = 985227236,
     ObjectScript = 202735509,
     Objective_C = 257,
-    Objective_C__ = 258,
+    Objective_Cpp = 258,
     Objective_J = 259,
     Odin = 889244082,
     Omgrofl = 260,
@@ -712,16 +712,6 @@ pub enum Language {
     xBase = 421
 }
 
-impl TryFrom<i64> for Language {
-    type Error = ();
-    fn try_from(id: i64) -> Result<Self, Self::Error> {
-        match I64_TO_LANGUAGE_MAP.get(&id) {
-            Some(language) => Ok(*language),
-            None => Err(()),
-        }
-    }
-}
-
 // Deliberately private; other modules should use try_from
 static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =
 ::phf::Map {
@@ -919,7 +909,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =
         (222900098, Language::Soong),
         (632765617, Language::Type_Language),
         (410, Language::Zephir),
-        (258, Language::Objective_C__),
+        (258, Language::Objective_Cpp),
         (138, Language::Graph_Modeling_Language),
         (44, Language::C_ObjDump),
         (155357471, Language::Pod_6),
@@ -1056,7 +1046,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =
         (931814087, Language::HiveQL),
         (171666519, Language::NASL),
         (246, Language::NetLogo),
-        (336943375, Language::F_),
+        (336943375, Language::Fstar),
         (125, Language::Game_Maker_Language),
         (421, Language::xBase),
         (622447435, Language::KiCad_Schematic),
@@ -1116,7 +1106,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =
         (411, Language::Zimpl),
         (206353404, Language::Fluent),
         (162, Language::IGOR_Pro),
-        (43, Language::C__),
+        (43, Language::Cpp),
         (195, Language::Lasso),
         (679594952, Language::Visual_Basic_6_0),
         (378760102, Language::YASnippet),

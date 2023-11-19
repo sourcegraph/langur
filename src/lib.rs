@@ -4,25 +4,21 @@
 use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use std::{
     collections::HashMap,
-    convert::TryFrom,
-    env, fmt,
+    env,
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     sync::mpsc,
 };
 
-pub mod detectors;
-pub mod filters;
+mod detectors;
+mod filters;
+pub mod language;
+
+pub use language::Language;
 
 #[doc(hidden)]
 pub mod cli;
-
-include!("generated/languages.rs");
-
-// Include the map that stores language info
-// static LANGUAGE_DATA_MAP: phf::Map<&'static str, Language> = ...;
-include!("generated/language_data_map.rs");
 
 const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 
@@ -54,7 +50,7 @@ struct LanguageData {
     /// The name of the language
     pub name: &'static str,
     /// Type of language. ex/ Data, Programming, Markup, Prose
-    pub language_type: LanguageType,
+    pub language_type: language::LanguageType,
     /// The css hex color used to represent the language on github. ex/ #dea584
     pub color: Option<&'static str>,
     /// Name of the parent language. ex/ The group for TSX would be TypeScript
@@ -68,40 +64,21 @@ struct LanguageData {
 //     }
 // }
 
-/// The set of possible language types
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum LanguageType {
-    Data,
-    Markup,
-    Programming,
-    Prose,
-}
-
-impl fmt::Display for LanguageType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LanguageType::Data => write!(f, "Data"),
-            LanguageType::Markup => write!(f, "Markup"),
-            LanguageType::Programming => write!(f, "Programming"),
-            LanguageType::Prose => write!(f, "Prose"),
-        }
-    }
-}
-
 /// An enum where the variant is the strategy that detected the language and the value is the name
 /// of the language
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Detection {
-    Filename(&'static str),
-    Extension(&'static str),
-    Shebang(&'static str),
-    Heuristics(&'static str),
-    Classifier(&'static str),
+    Filename(Language),
+    Extension(Language),
+    Shebang(Language),
+    Heuristics(Language),
+    Classifier(Language),
 }
+
 
 impl Detection {
     /// Returns the language detected
-    fn language(&self) -> &'static str {
+    fn language(&self) -> Language {
         match self {
             Detection::Filename(language)
             | Detection::Extension(language)
@@ -225,7 +202,7 @@ fn truncate_to_char_boundary(s: &str, mut max: usize) -> &str {
 /// ```
 fn get_language_breakdown<P: AsRef<Path>>(
     path: P,
-) -> HashMap<&'static str, Vec<(Detection, PathBuf)>> {
+) -> HashMap<Language, Vec<(Detection, PathBuf)>> {
     let override_builder = OverrideBuilder::new(&path);
     let override_builder = filters::add_documentation_override(override_builder);
     let override_builder = filters::add_vendor_override(override_builder);

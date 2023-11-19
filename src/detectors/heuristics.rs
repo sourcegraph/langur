@@ -12,9 +12,11 @@ enum Pattern {
     Positive(&'static str),
 }
 
+use crate::Language;
+
 #[derive(Debug)]
 struct Rule {
-    languages: &'static [&'static str],
+    languages: &'static [Language],
     pattern: Option<Pattern>,
 }
 
@@ -45,9 +47,9 @@ impl Pattern {
 
 pub(crate) fn get_languages_from_heuristics(
     extension: &str,
-    candidates: &[&'static str],
+    candidates: &[Language],
     content: &str,
-) -> Vec<&'static str> {
+) -> Vec<Language> {
     match DISAMBIGUATIONS.get(extension) {
         Some(rules) => {
             let rules = rules.iter().filter(|rule| {
@@ -74,12 +76,13 @@ pub(crate) fn get_languages_from_heuristics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Language as L;
 
     #[test]
     fn test_heuristics_get_languages_positive_pattern() {
         assert_eq!(
-            get_languages_from_heuristics(".es", &["Erlang", "JavaScript"], "'use strict';"),
-            vec!["JavaScript"]
+            get_languages_from_heuristics(".es", &[L::Erlang, L::JavaScript], "'use strict';"),
+            vec![L::JavaScript]
         );
     }
 
@@ -88,10 +91,10 @@ mod tests {
         assert_eq!(
             get_languages_from_heuristics(
                 ".sql",
-                &["PLSQL", "PLpgSQL", "SQL", "SQLPL", "TSQL"],
+                &[L::PLSQL, L::PLpgSQL, L::SQL, L::SQLPL, L::TSQL],
                 "LALA THIS IS SQL"
             ),
-            vec!["SQL"]
+            vec![L::SQL]
         );
     }
 
@@ -100,10 +103,10 @@ mod tests {
         assert_eq!(
             get_languages_from_heuristics(
                 ".pro",
-                &["Proguard", "Prolog", "INI", "QMake", "IDL"],
+                &[L::Proguard, L::Prolog, L::INI, L::QMake, L::IDL],
                 "HEADERS SOURCES"
             ),
-            vec!["QMake"]
+            vec![L::QMake]
         );
     }
 
@@ -113,7 +116,7 @@ mod tests {
         assert_eq!(
             get_languages_from_heuristics(
                 ".pro",
-                &["Proguard", "Prolog", "INI", "QMake", "IDL"],
+                &[L::Proguard, L::Prolog, L::INI, L::QMake, L::IDL],
                 "HEADERS"
             ),
             empty_vec
@@ -125,34 +128,34 @@ mod tests {
         assert_eq!(
             get_languages_from_heuristics(
                 ".ms",
-                &["Roff", "Unix Assembly", "MAXScript"],
+                &[L::Roff, L::Unix_Assembly, L::MAXScript],
                 ".include:"
             ),
-            vec!["Unix Assembly"]
+            vec![L::Unix_Assembly]
         );
     }
 
     #[test]
     fn test_heuristics_get_languages_or_pattern() {
         assert_eq!(
-            get_languages_from_heuristics(".p", &["Gnuplot", "OpenEdge ABL"], "plot"),
-            vec!["Gnuplot"]
+            get_languages_from_heuristics(".p", &[L::Gnuplot, L::OpenEdge_ABL], "plot"),
+            vec![L::Gnuplot]
         );
     }
 
     #[test]
     fn test_heuristics_get_languages_named_pattern() {
         assert_eq!(
-            get_languages_from_heuristics(".h", &["Objective-C", "C++"], "std::out"),
-            vec!["C++"]
+            get_languages_from_heuristics(".h", &[L::Objective_C, L::Cpp], "std::out"),
+            vec![L::Cpp]
         );
     }
 
     #[test]
     fn test_heuristics_get_languages_default_pattern() {
         assert_eq!(
-            get_languages_from_heuristics(".man", &["Roff Manpage", "Roff"], "alskdjfahij"),
-            vec!["Roff"]
+            get_languages_from_heuristics(".man", &[L::Roff_Manpage, L::Roff], "alskdjfahij"),
+            vec![L::Roff]
         );
     }
 
@@ -161,11 +164,11 @@ mod tests {
         assert_eq!(
             get_languages_from_heuristics(
                 ".1in",
-                &["Roff Manpage", "Roff"],
+                &[L::Roff_Manpage, L::Roff],
                 r#".TH LYXCLIENT 1 "@LYX_DATE@" "Version @VERSION@" "lyxclient @VERSION@"
 .SH NAME"#
             ),
-            vec!["Roff Manpage"]
+            vec![L::Roff_Manpage]
         );
     }
 }
