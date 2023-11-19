@@ -15,6 +15,9 @@ use std::{
 pub mod detectors;
 pub mod filters;
 
+#[doc(hidden)]
+pub mod cli;
+
 // Include the map that stores language info
 // static LANGUAGE_INFO: phf::Map<&'static str, Language> = ...;
 include!("generated/language_info_map.rs");
@@ -45,7 +48,7 @@ const MAX_CONTENT_SIZE_BYTES: usize = 51200;
 /// If try_from is called with a language returned from [`detect`] or [`get_language_breakdown`]
 /// the value is guaranteed to be there and can be unwrapped
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Language {
+struct Language {
     /// The name of the language
     pub name: &'static str,
     /// Type of language. ex/ Data, Programming, Markup, Prose
@@ -96,7 +99,7 @@ pub enum Detection {
 
 impl Detection {
     /// Returns the language detected
-    pub fn language(&self) -> &'static str {
+    fn language(&self) -> &'static str {
         match self {
             Detection::Filename(language)
             | Detection::Extension(language)
@@ -107,7 +110,7 @@ impl Detection {
     }
 
     /// Returns the strategy used to detect the langauge
-    pub fn variant(&self) -> &str {
+    fn variant(&self) -> &str {
         match self {
             Detection::Filename(_) => "Filename",
             Detection::Extension(_) => "Extension",
@@ -133,7 +136,7 @@ impl Detection {
 /// let language = detect(path).unwrap().unwrap();
 /// assert_eq!(Detection::Heuristics("Rust"), language);
 /// ```
-pub fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
+fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
     let filename = match path.file_name() {
         Some(filename) => filename.to_str(),
         None => return Ok(None),
@@ -218,7 +221,7 @@ fn truncate_to_char_boundary(s: &str, mut max: usize) -> &str {
 /// let total_detections = breakdown.iter().fold(0, |sum, (language, detections)| sum + detections.len());
 /// println!("Total files detected: {}", total_detections);
 /// ```
-pub fn get_language_breakdown<P: AsRef<Path>>(
+fn get_language_breakdown<P: AsRef<Path>>(
     path: P,
 ) -> HashMap<&'static str, Vec<(Detection, PathBuf)>> {
     let override_builder = OverrideBuilder::new(&path);
@@ -297,7 +300,7 @@ mod tests {
     use std::iter;
     use std::path::PathBuf;
 
-    pub fn linguist_path(s: &str) -> PathBuf {
+    fn linguist_path(s: &str) -> PathBuf {
         PathBuf::from("external/com_github_linguist").join(s)
     }
 

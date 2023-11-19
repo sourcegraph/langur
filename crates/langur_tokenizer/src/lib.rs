@@ -10,6 +10,7 @@ pub use tokenizer::{Token, Tokenizer};
 /// let tokens: Vec<&str> = langur_tokenizer::get_key_tokens(content).collect();
 /// assert_eq!(tokens, vec!["let", "x", "=", "[", ",", "]", ";"]);
 /// ```
+#[doc(hidden)]
 pub fn get_key_tokens(content: &str) -> impl Iterator<Item = &str> {
     Tokenizer::new(content).tokens().filter_map(|t| match t {
         Token::Ident(t) | Token::Symbol(t) => Some(t),

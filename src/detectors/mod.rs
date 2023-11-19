@@ -4,8 +4,8 @@ mod filenames;
 mod heuristics;
 mod interpreters;
 
-pub use classifier::classify;
-pub use extensions::{get_extension, get_languages_from_extension};
-pub use filenames::get_language_from_filename;
-pub use heuristics::get_languages_from_heuristics;
-pub use interpreters::get_languages_from_shebang;
+pub(crate) use classifier::classify;
+pub(crate) use extensions::{get_extension, get_languages_from_extension};
+pub(crate) use filenames::get_language_from_filename;
+pub(crate) use heuristics::get_languages_from_heuristics;
+pub(crate) use interpreters::get_languages_from_shebang;
