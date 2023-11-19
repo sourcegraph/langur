@@ -1,4 +1,4 @@
-static LANGUAGES: &[&'static str] = &[
+static LANGUAGES: &[&str] = &[
     "1C Enterprise",
     "2-Dimensional Array",
     "4D",

@@ -181,11 +181,11 @@ impl<'a> Tokens<'a> {
 
     fn block_comment(
         &mut self,
-        start_sequence: &Vec<char>,
-        end_sequence: &Vec<char>,
+        start_sequence: &[char],
+        end_sequence: &[char],
     ) -> Option<Token<'a>> {
         let mut symbol = vec![start_sequence[0]];
-        for expected_symbol in start_sequence[1..].into_iter() {
+        for expected_symbol in start_sequence[1..].iter() {
             match self.peek() {
                 Some((_, ch)) if ch == *expected_symbol => {
                     symbol.push(ch);
@@ -194,7 +194,7 @@ impl<'a> Tokens<'a> {
                 _ => {
                     let token_start = self.token_start();
                     let backlog_chars = symbol[1..]
-                        .into_iter()
+                        .iter()
                         .enumerate()
                         .map(|(idx, ch)| (idx + token_start, *ch));
                     self.push_backlog(backlog_chars);
@@ -213,7 +213,7 @@ impl<'a> Tokens<'a> {
     fn take_block(
         &mut self,
         content_idx: usize,
-        end_sequence: &Vec<char>,
+        end_sequence: &[char],
     ) -> Result<(&'a str, &'a str), Token<'a>> {
         // start with a random char '@' that won't match the closure check
         let mut prev_chars = CircularQueue::with_capacity(end_sequence.len());
@@ -260,10 +260,7 @@ impl<'a> Iterator for Tokens<'a> {
                 }
                 Some((_, 'o')) => {
                     self.advance();
-                    Some(Token::Number(self.take_if_slice(&mut |ch| match ch {
-                        '0'..='7' | '_' => true,
-                        _ => false,
-                    })))
+                    Some(Token::Number(self.take_if_slice(&mut |ch| matches!(ch, '0'..='7' | '_'))))
                 }
                 Some((_, 'x')) => {
                     self.advance();
@@ -299,24 +296,24 @@ impl<'a> Iterator for Tokens<'a> {
                     let comment = self.slice(comment_start, comment_end);
                     Some(Token::LineComment(symbol, comment))
                 }
-                Some((_, '*')) => self.block_comment(&vec!['/', '*'], &vec!['*', '/']),
+                Some((_, '*')) => self.block_comment(&['/', '*'], &['*', '/']),
                 _ => Some(Token::Symbol(
                     self.slice_from_token_start(self.token_start() + 1),
                 )),
             },
             Some('{') => match self.peek() {
-                Some((_, '-')) => self.block_comment(&vec!['{', '-'], &vec!['-', '}']),
+                Some((_, '-')) => self.block_comment(&['{', '-'], &['-', '}']),
                 _ => Some(Token::Symbol(
                     self.slice_from_token_start(self.token_start() + 1),
                 )),
             },
             Some('(') => match self.peek() {
-                Some((_, '*')) => self.block_comment(&vec!['(', '*'], &vec!['*', ')']),
+                Some((_, '*')) => self.block_comment(&['(', '*'], &['*', ')']),
                 _ => Some(Token::Symbol(
                     self.slice_from_token_start(self.token_start() + 1),
                 )),
             },
-            Some('<') => self.block_comment(&vec!['<', '!', '-', '-'], &vec!['-', '-', '>']),
+            Some('<') => self.block_comment(&['<', '!', '-', '-'], &['-', '-', '>']),
             Some('#') => {
                 let symbol = self.take_if_slice(&mut |ch| ch == '#');
                 let comment_start = self.eat_non_newline_whitespace();

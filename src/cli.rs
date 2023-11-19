@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use clap::{App, Arg};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -6,7 +8,7 @@ use std::{
     collections::{BinaryHeap, HashMap},
     convert::TryFrom,
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
@@ -45,14 +47,12 @@ pub fn main() {
     let mut language_count: Vec<(&'static str, Vec<(Detection, PathBuf)>)> = breakdown
         .into_iter()
         .filter(|(language_name, _)| {
-            match Language::try_from(*language_name).map(|l| l.language_type) {
-                Ok(LanguageType::Markup) | Ok(LanguageType::Programming) => true,
-                _ => false,
-            }
+            matches!(Language::try_from(*language_name).map(|l| l.language_type), 
+                Ok(LanguageType::Markup) | Ok(LanguageType::Programming))
         })
         .collect();
     language_count.sort_by(|(_, a), (_, b)| b.len().cmp(&a.len()));
-    if let Err(_) = print_language_split(&language_count) {
+    if print_language_split(&language_count).is_err() {
         std::process::exit(1);
     }
 
@@ -68,15 +68,15 @@ pub fn main() {
     };
 
     if matches.is_present("file-breakdown") {
-        writeln!(io::stdout(), "").unwrap_or_else(|_| std::process::exit(1));
-        if let Err(_) = print_file_breakdown(&language_count, &cli_options) {
+        writeln!(io::stdout()).unwrap_or_else(|_| std::process::exit(1));
+        if print_file_breakdown(&language_count, &cli_options).is_err() {
             std::process::exit(1);
         }
     }
 
     if matches.is_present("strategy-breakdown") {
-        writeln!(io::stdout(), "").unwrap_or_else(|_| std::process::exit(1));
-        if let Err(_) = print_strategy_breakdown(&language_count, &cli_options) {
+        writeln!(io::stdout()).unwrap_or_else(|_| std::process::exit(1));
+        if print_strategy_breakdown(&language_count, &cli_options).is_err() {
             std::process::exit(1);
         }
     }
@@ -120,7 +120,7 @@ fn get_cli<'a, 'b>() -> App<'a, 'b> {
 }
 
 fn print_language_split(
-    language_counts: &Vec<(&'static str, Vec<(Detection, PathBuf)>)>,
+    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
 ) -> Result<(), io::Error> {
     let total = language_counts
         .iter()
@@ -134,7 +134,7 @@ fn print_language_split(
 }
 
 fn print_file_breakdown(
-    language_counts: &Vec<(&'static str, Vec<(Detection, PathBuf)>)>,
+    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut stdout = StandardStream::stdout(options.color_option());
@@ -150,7 +150,7 @@ fn print_file_breakdown(
                     let path = strip_relative_parts(file);
                     writeln!(stdout, "{}", path.display())?;
                 }
-                writeln!(stdout, "")?;
+                writeln!(stdout)?;
             }
         }
     }
@@ -158,12 +158,12 @@ fn print_file_breakdown(
 }
 
 fn print_strategy_breakdown(
-    language_counts: &Vec<(&'static str, Vec<(Detection, PathBuf)>)>,
+    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut strategy_breakdown = HashMap::new();
-    for (language, files) in language_counts.into_iter() {
-        for (detection, file) in files.into_iter() {
+    for (language, files) in language_counts.iter() {
+        for (detection, file) in files.iter() {
             let files = strategy_breakdown
                 .entry(detection.variant())
                 .or_insert(BinaryHeap::new());
@@ -177,7 +177,7 @@ fn print_strategy_breakdown(
 
     let mut stdout = StandardStream::stdout(options.color_option());
     for (strategy, mut breakdowns) in strategy_breakdowns.into_iter() {
-        if options.matches_filter(&strategy[..]) {
+        if options.matches_filter(strategy) {
             stdout.set_color(&TITLE_COLOR)?;
             write!(stdout, "{}", strategy)?;
 
@@ -192,19 +192,20 @@ fn print_strategy_breakdown(
                     stdout.set_color(&LANGUAGE_COLOR)?;
                     writeln!(stdout, " ({})", language)?;
                 }
-                writeln!(stdout, "")?;
+                writeln!(stdout)?;
             }
         }
     }
     Ok(())
 }
 
-fn strip_relative_parts<'a>(path: &'a PathBuf) -> &'a std::path::Path {
-    if path.starts_with("./") {
-        path.strip_prefix("./").unwrap()
-    } else {
-        path.as_path()
-    }
+fn strip_relative_parts(path: &Path) -> &Path {
+    path.strip_prefix("./").unwrap_or(path)
+    // if let Some(path_without_prefix) = path.strip_prefix("./") {
+    //     path.strip_prefix("./").unwrap()
+    // } else {
+    //     path
+    // }
 }
 
 lazy_static! {

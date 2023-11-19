@@ -7,7 +7,7 @@ use std::{
 use langur_tokenizer::Tokenizer;
 
 fn main() {
-    if let Some(file_name) = env::args().skip(1).next() {
+    if let Some(file_name) = env::args().nth(1) {
         match File::open(&file_name) {
             Ok(mut file) => {
                 let mut content = String::new();
