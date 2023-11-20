@@ -1,4 +1,4 @@
-static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {
+pub(crate) static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {
     use crate::Language;
     ::phf::Map {
     key: 12913932095322966823,

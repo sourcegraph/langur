@@ -6,13 +6,12 @@ use regex::Regex;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap},
-    convert::TryFrom,
     io::{self, Write},
     path::{Path, PathBuf},
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::{get_language_breakdown, Detection, LanguageData, language::LanguageType};
+use crate::{get_language_breakdown, Detection, Language, language::LANGUAGE_DATA_MAP, language::LanguageType};
 
 struct CLIOptions {
     color: bool,
@@ -44,11 +43,11 @@ pub fn main() {
     let path = matches.value_of("PATH").unwrap();
     let breakdown = get_language_breakdown(path);
 
-    let mut language_count: Vec<(&'static str, Vec<(Detection, PathBuf)>)> = breakdown
+    let mut language_count: Vec<(Language, Vec<(Detection, PathBuf)>)> = breakdown
         .into_iter()
-        .filter(|(language_name, _)| {
-            matches!(LanguageData::try_from(*language_name).map(|l| l.language_type), 
-                Ok(LanguageType::Markup) | Ok(LanguageType::Programming))
+        .filter(|(language, _)| {
+            matches!(crate::language::LANGUAGE_DATA_MAP.get(language).map(|l| l.language_type), 
+                Some(LanguageType::Markup) | Some(LanguageType::Programming))
         })
         .collect();
     language_count.sort_by(|(_, a), (_, b)| b.len().cmp(&a.len()));
@@ -120,28 +119,29 @@ fn get_cli<'a, 'b>() -> App<'a, 'b> {
 }
 
 fn print_language_split(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
 ) -> Result<(), io::Error> {
     let total = language_counts
         .iter()
         .fold(0, |acc, (_, files)| acc + files.len()) as f64;
     for (language, files) in language_counts.iter() {
         let percentage = ((files.len() * 100) as f64) / total;
-        writeln!(io::stdout(), "{:.2}% {}", percentage, language)?;
+        writeln!(io::stdout(), "{:.2}% {}", percentage, LANGUAGE_DATA_MAP.get(language).unwrap().name)?;
     }
 
     Ok(())
 }
 
 fn print_file_breakdown(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut stdout = StandardStream::stdout(options.color_option());
     for (language, breakdowns) in language_counts.iter() {
-        if options.matches_filter(language) {
+        let language_name = LANGUAGE_DATA_MAP.get(language).unwrap().name;
+        if options.matches_filter(language_name) {
             stdout.set_color(&TITLE_COLOR)?;
-            write!(stdout, "{}", language)?;
+            write!(stdout, "{}", language_name)?;
 
             stdout.set_color(&DEFAULT_COLOR)?;
             writeln!(stdout, " ({})", breakdowns.len())?;
@@ -158,20 +158,21 @@ fn print_file_breakdown(
 }
 
 fn print_strategy_breakdown(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut strategy_breakdown = HashMap::new();
     for (language, files) in language_counts.iter() {
+        let language_name = LANGUAGE_DATA_MAP.get(language).unwrap().name;
         for (detection, file) in files.iter() {
             let files = strategy_breakdown
                 .entry(detection.variant())
                 .or_insert(BinaryHeap::new());
-            files.push(Reverse((language, file)));
+            files.push(Reverse((language_name, file)));
         }
     }
 
-    let mut strategy_breakdowns: Vec<(&str, BinaryHeap<Reverse<(&&str, &PathBuf)>>)> =
+    let mut strategy_breakdowns: Vec<(&str, BinaryHeap<Reverse<(&str, &PathBuf)>>)> =
         strategy_breakdown.into_iter().collect();
     strategy_breakdowns.sort_by(|(_, a), (_, b)| b.len().cmp(&a.len()));
 

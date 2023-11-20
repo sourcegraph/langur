@@ -21,13 +21,14 @@ struct LanguageId {
 }
 
 impl LanguageId {
-    fn slice_to_string(ids: &[LanguageId]) -> String {
+    fn slice_to_string(ids: &[LanguageId], after_comma: &str) -> String {
         let mut buf = String::new();
         buf.push_str("&[");
         for id in ids.iter() {
             buf.push_str("Language::");
             buf.write_fmt(format_args!("{}", id.identifier.as_ref())).unwrap();
             buf.push(',');
+            buf.push_str(after_comma)
         }
         buf.push(']');
         buf
@@ -256,7 +257,7 @@ impl Rule<LanguageId> {
 
         format!(
             "Rule {{ languages: {}, pattern: {}}}",
-            LanguageId::slice_to_string(&ids),
+            LanguageId::slice_to_string(&ids, " "),
             pattern_code
         )
     }
@@ -379,9 +380,11 @@ impl LanguageTable {
     fn write_language_list(&self) {
         let mut enum_branches = Vec::with_capacity(self.id_to_data_map.len());
         let mut i64_to_id_map = PhfMap::new();
+        let mut id_list = Vec::with_capacity(self.id_to_data_map.len());
         for (_, id) in self.sorted_names.iter() {
             enum_branches.push(format!("{} = {}", id.identifier.as_ref(), id.value));
             i64_to_id_map.entry(id.value, &format!("Language::{}", id.identifier.as_ref()));
+            id_list.push(id.clone());
         }
     
         let mut file = BufWriter::new(File::create(LANGUAGE_LIST_FILE).unwrap());
@@ -392,16 +395,37 @@ impl LanguageTable {
 #[repr(C)]
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+/// The core type for identifying Languages in this crate.
+/// 
+/// This is a non-exhaustive enum rather than being stringly-typed to allow
+/// for compiler assistance in catching typos.
+/// 
+/// The list of languages is based on Linguist's languages.yml file.
+/// 
+///   https://sourcegraph.com/github.com/github-linguist/linguist/-/blob/lib/linguist/languages.yml
+/// 
+/// However, that file doesn't make guarantees that languages will not
+/// be removed. However, this type will generally not make breaking changes,
+/// we will instead mark removed language codes as deprecated.
 pub enum Language {{
     {}
 }}
 
 // Deliberately private; other modules should use try_from
 static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
+
+impl Language {{
+    /// List of all variants currently available, for iteration.
+    /// 
+    /// The exact order of elements is unspecified.
+    pub const VARIANTS: &[Language] = 
+        {}
+    ;
+}}
 ",
-            // "static LANGUAGES: &[&str] = &[\n    \"{}\"\n];",
             enum_branches.join(",\n    "),
             i64_to_id_map.build(),
+            LanguageId::slice_to_string(&id_list, "\n        "),
         )
         .unwrap();
     }
@@ -419,7 +443,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
         let mut file = BufWriter::new(File::create(LANGUAGE_DATA_FILE).unwrap());
         writeln!(
             &mut file,
-"static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {{
+"pub(crate) static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = {{
     use crate::Language;
     {}
 }};
@@ -447,7 +471,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
         for (filename, ids) in temp_map.iter_mut() {
             ids.sort();
             filename_to_language_map.entry(
-                filename, &LanguageId::slice_to_string(ids));
+                filename, &LanguageId::slice_to_string(ids, " "));
         }
 
         let built_map = filename_to_language_map.build();
@@ -478,7 +502,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
         for (interpreter, ids) in temp_map.iter_mut() {
             ids.sort();
             interpreter_to_language_map.entry(
-                interpreter, &LanguageId::slice_to_string(ids));
+                interpreter, &LanguageId::slice_to_string(ids, " "));
         }
     
         let built_map = interpreter_to_language_map.build();
@@ -510,7 +534,7 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
         for (extension, ids) in temp_map.iter_mut() {
             ids.sort();
             extension_to_language_map.entry(
-                extension, &LanguageId::slice_to_string(ids));
+                extension, &LanguageId::slice_to_string(ids, " "));
         }
     
         let built_map = extension_to_language_map.build();
@@ -620,8 +644,11 @@ static I64_TO_LANGUAGE_MAP: phf::Map<i64, Language> =\n{};\n
             for ext in extensions.iter() {
                 let extension = ext.clone().to_ascii_lowercase();
                 let key = extension;
-                // Adding a rule to default to C for .h if the Objective C and C++ patterns don't match
-                // The classifer was unreliable for distinguishing between C and C++ for .h
+                // NOTE(def: special-dot-h-rule)
+                // Adding a rule to default to C for .h if the
+                // Objective-C and C++ patterns don't match.
+                // The classifer was unreliable for distinguishing
+                // between C and C++ for .h
                 let rules: Vec<_> = 
                     if ext == ".h" {
                         let mut new_rules = rules.clone();

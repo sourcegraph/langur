@@ -9,13 +9,13 @@ include!("generated/languages.rs");
 
 impl PhfBorrow<Language> for Language {
     fn borrow(&self) -> &Language {
-        &self
+        self
     }
 }
 
 impl PhfHash for Language {
     fn phf_hash<H: Hasher>(&self, state: &mut H) {
-        (*self as i64).phf_hash(&mut state)
+        (*self as i64).phf_hash(state)
     }
 }
 
@@ -30,7 +30,7 @@ impl TryFrom<i64> for Language {
 }
 
 // Include the map that stores language info
-// static LANGUAGE_DATA_MAP: phf::Map<&'static str, Language> = ...;
+// static LANGUAGE_DATA_MAP: phf::Map<crate::Language, LanguageData> = ...;
 include!("generated/language_data_map.rs");
 
 /// The set of possible language types

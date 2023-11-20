@@ -57,13 +57,6 @@ struct LanguageData {
     pub group: Option<&'static str>,
 }
 
-// impl TryFrom<&str> for LanguageData {
-//     type Error = &'static str;
-//     fn try_from(name: &str) -> Result<Self, Self::Error> {
-//         LANGUAGE_DATA_MAP.get(name).copied().ok_or("Language not found")
-//     }
-// }
-
 /// An enum where the variant is the strategy that detected the language and the value is the name
 /// of the language
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -84,7 +77,7 @@ impl Detection {
             | Detection::Extension(language)
             | Detection::Shebang(language)
             | Detection::Heuristics(language)
-            | Detection::Classifier(language) => language,
+            | Detection::Classifier(language) => *language,
         }
     }
 
@@ -154,7 +147,7 @@ fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
 
     // using heuristics is only going to be useful if we have more than one candidate
     // if the extension didn't result in candidate languages then the heuristics won't either
-    let candidates = if candidates.len() > 1 {
+    let candidates: Vec<Language> = if candidates.len() > 1 {
         if let Some(extension) = extension {
             let languages =
                 detectors::get_languages_from_heuristics(extension, &candidates, content);
@@ -247,10 +240,10 @@ fn get_language_breakdown<P: AsRef<Path>>(
     language_breakdown
 }
 
-fn filter_candidates(
-    previous_candidates: Vec<&'static str>,
-    new_candidates: Vec<&'static str>,
-) -> Vec<&'static str> {
+fn filter_candidates<L: PartialEq + Copy>(
+    previous_candidates: Vec<L>,
+    new_candidates: Vec<L>,
+) -> Vec<L> {
     if previous_candidates.is_empty() {
         return new_candidates;
     }
@@ -259,7 +252,7 @@ fn filter_candidates(
         return previous_candidates;
     }
 
-    let filtered_candidates: Vec<&'static str> = previous_candidates
+    let filtered_candidates: Vec<_> = previous_candidates
         .iter()
         .filter(|l| new_candidates.contains(l))
         .copied()
@@ -288,7 +281,7 @@ mod tests {
         let path = Path::new("APKBUILD");
         let detected_language = detect(path).unwrap().unwrap();
 
-        assert_eq!(detected_language, Detection::Filename("Alpine Abuild"));
+        assert_eq!(detected_language, Detection::Filename(Language::Alpine_Abuild));
     }
 
     #[test]
@@ -296,7 +289,7 @@ mod tests {
         let path = Path::new("pizza.purs");
         let detected_language = detect(path).unwrap().unwrap();
 
-        assert_eq!(detected_language, Detection::Extension("PureScript"));
+        assert_eq!(detected_language, Detection::Extension(Language::PureScript));
     }
 
     #[test]
@@ -310,7 +303,7 @@ mod tests {
 
         fs::remove_file(path).unwrap();
 
-        assert_eq!(detected_language, Detection::Shebang("Python"));
+        assert_eq!(detected_language, Detection::Shebang(Language::Python));
     }
 
     #[test]
@@ -324,7 +317,7 @@ mod tests {
 
         fs::remove_file(path).unwrap();
 
-        assert_eq!(detected_language, Detection::Heuristics("JavaScript"));
+        assert_eq!(detected_language, Detection::Heuristics(Language::JavaScript));
     }
 
     #[test]
@@ -345,7 +338,7 @@ mod tests {
         let detected_language = detect(path).unwrap().unwrap();
 
         fs::remove_file(path).unwrap();
-        assert_eq!(detected_language, Detection::Classifier("Rust"));
+        assert_eq!(detected_language, Detection::Classifier(Language::Rust));
     }
 
     #[test]
@@ -391,21 +384,25 @@ mod tests {
                 file_paths.zip(language_iter)
             })
             .for_each(|(file, language)| {
-                // Skip the files we can't detect. The reason the detect function fails on these is
-                // because of a heuristic added to .h files that defaults to C if none of the
-                // Objective-C or C++ rules match. This makes us fail on two of the sample files
+                // Skip the files we can't detect. The reason the detect function
+                // fails on these is because of a heuristic added to .h files
+                // that defaults to C if none of the Objective-C or C++ rules
+                // match. This makes us fail on two of the sample files
                 // but tends to perform better on non training data
+                //
+                // See NOTE(ref: special-dot-h-rule)
                 if file.file_name().unwrap() == "rpc.h" || file.file_name().unwrap() == "Field.h" {
                     return;
                 }
                 // F* uses the name Fstar in the file system
-                let language = match &language[..] {
+                let folder_name = match &language[..] {
                     "Fstar" => "F*",
                     l => l,
                 };
                 if let Ok(Some(detection)) = detect(&file) {
                     total += 1;
-                    if detection.language() == language {
+                    let language_name = crate::language::LANGUAGE_DATA_MAP.get(&detection.language()).unwrap().name;
+                    if language_name == folder_name {
                         correct += 1;
                     } else {
                         println!("Incorrect detection: {:?} {:?}", file, detection)

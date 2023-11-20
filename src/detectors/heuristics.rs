@@ -112,14 +112,13 @@ mod tests {
 
     #[test]
     fn test_heuristics_get_languages_and_not_all_match() {
-        let empty_vec: Vec<&'static str> = vec![];
         assert_eq!(
             get_languages_from_heuristics(
                 ".pro",
                 &[L::Proguard, L::Prolog, L::INI, L::QMake, L::IDL],
                 "HEADERS"
             ),
-            empty_vec
+            vec![]
         );
     }
 
