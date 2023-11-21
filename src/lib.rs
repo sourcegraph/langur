@@ -54,7 +54,7 @@ struct LanguageData {
     /// The css hex color used to represent the language on github. ex/ #dea584
     pub color: Option<&'static str>,
     /// Name of the parent language. ex/ The group for TSX would be TypeScript
-    pub group: Option<&'static str>,
+    pub group: Option<Language>,
 }
 
 /// An enum where the variant is the strategy that detected the language and the value is the name

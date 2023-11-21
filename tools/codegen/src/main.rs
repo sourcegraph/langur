@@ -8,12 +8,108 @@ use regex::Regex;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
+    fmt::{Display, Write as _},
     fs::{self, File},
+    hash::{Hash, Hasher},
     io::{BufWriter, Write},
-    iter, rc::Rc,
-    hash::{Hash, Hasher}, fmt::{Display, Write as _},
+    iter, rc::Rc, path::{Path, PathBuf},
 };
 
+const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuristics_map.rs";
+const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
+const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
+const INTERPRETER_MAP_FILE: &str = "src/generated/interpreter_language_map.rs";
+const LANGUAGE_DATA_FILE: &str = "src/generated/language_data_map.rs";
+const LANGUAGE_LIST_FILE: &str = "src/generated/languages.rs";
+const TOKEN_LOG_PROBABILITY_FILE: &str = "src/generated/token_log_probabilities.rs";
+
+const HEURISTICS_SOURCE_FILE: &str = "lib/linguist/heuristics.yml";
+const LANGUAGE_SOURCE_FILE: &str = "lib/linguist/languages.yml";
+
+const MAX_TOKEN_BYTES: usize = 32;
+
+fn main() {
+    let linguist_root_dir = PathBuf::from("external/com_github_linguist");
+    let parsed_map: ParsedLanguageMap =
+        serde_yaml::from_reader(File::open(
+            linguist_root_dir.join(LANGUAGE_SOURCE_FILE)
+        ).unwrap()).unwrap();
+    let language_table = LanguageTable::new(parsed_map, &linguist_root_dir);
+
+    language_table.write_language_list();
+    language_table.write_language_data();
+    language_table.create_filename_map();
+    language_table.create_extension_map();
+    language_table.create_interpreter_map();
+
+    let heuristics: Heuristics<String> =
+        serde_yaml::from_reader(File::open(
+            linguist_root_dir.join(HEURISTICS_SOURCE_FILE)
+        ).unwrap()).unwrap();
+
+    language_table.create_disambiguation_heuristics_map(heuristics);
+
+    language_table.train_classifier();
+}
+
+type ParsedLanguageMap = HashMap<String, ParsedLanguage>;
+
+/// Represents a single language entry in the languages.yml file.
+#[derive(Deserialize, Clone)]
+struct ParsedLanguage {
+    filenames: Option<Vec<String>>,
+    interpreters: Option<Vec<String>>,
+    extensions: Option<Vec<String>>,
+    language_id: i64,
+    #[serde(rename(deserialize = "type"))]
+    language_type: LanguageType,
+    color: Option<String>,
+    group: Option<String>,
+}
+
+impl ParsedLanguage {
+    fn id(&self, name: &str) -> LanguageId {
+        LanguageId { value: self.language_id, identifier: Rc::new(Identifier::new(name)) }
+    }
+
+    fn to_rust_code(&self, name: &str) -> String {
+        let mut ident: Identifier;
+        let opt_group_id = match &self.group {
+            Some(s) => {
+                ident = Identifier::new(s);
+                Some(PrefixedIdentifier { identifer: &ident })
+            }
+            None => None,
+        };
+        format!(
+            "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
+            name,
+            self.language_type.to_rust_code(),
+            self.color,
+            opt_group_id,
+        )
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+enum LanguageType {
+    #[serde(rename = "data")]
+    Data,
+    #[serde(rename = "markup")]
+    Markup,
+    #[serde(rename = "programming")]
+    Programming,
+    #[serde(rename = "prose")]
+    Prose,
+}
+
+impl LanguageType {
+    fn to_rust_code(&self) -> String {
+        format!("LanguageType::{:?}", self)
+    }
+}
+
+/// Represents the language_id field stored in Linguist's languages.yml file.
 #[derive(Clone, Eq)]
 struct LanguageId {
     value: i64,
@@ -25,13 +121,16 @@ impl LanguageId {
         let mut buf = String::new();
         buf.push_str("&[");
         for id in ids.iter() {
-            buf.push_str("Language::");
-            buf.write_fmt(format_args!("{}", id.identifier.as_ref())).unwrap();
+            buf.write_fmt(format_args!("{}", id.prefixed_id())).unwrap();
             buf.push(',');
-            buf.push_str(after_comma)
+            buf.push_str(after_comma);
         }
         buf.push(']');
         buf
+    }
+
+    fn prefixed_id(&self) -> PrefixedIdentifier<'_> {
+        PrefixedIdentifier { identifer: self.identifier.as_ref() }
     }
 }
 
@@ -67,34 +166,48 @@ impl PhfHash for LanguageId {
 
 impl FmtConst for LanguageId {
     fn fmt_const(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.prefixed_id().fmt(f)
+    }
+}
+
+/// Represents identifiers in codegen, via the Display impl.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct Identifier {
+    text: String,
+}
+
+impl std::fmt::Debug for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        (self as &dyn std::fmt::Display).fmt(f)
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
+struct PrefixedIdentifier<'a> {
+    identifer: &'a Identifier
+}
+
+impl std::fmt::Debug for PrefixedIdentifier<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        (self as &dyn std::fmt::Display).fmt(f)
+    }
+}
+
+impl Display for PrefixedIdentifier<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Language::")?;
-        self.identifier.fmt_const(f)
+        self.identifer.fmt(f)
     }
 }
 
 impl FmtConst for Identifier {
     fn fmt_const(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.fmt(f)
-    }
-}
-
-type ParsedLanguageMap = HashMap<String, LanguageDTO>;
-type NamedPatterns = HashMap<String, MaybeMany<String>>;
-
-struct LanguageTable {
-    id_to_data_map: HashMap<LanguageId, LanguageDataWithName>,
-    sorted_names: Vec<(String, LanguageId)>,
-    parsed_map: ParsedLanguageMap,
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-struct Identifier {
-    text: String,
-}
-
-impl Display for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.text)
     }
 }
 
@@ -132,8 +245,22 @@ impl Identifier {
     }    
 }
 
+/// The core data structure representing all the languages
+/// in Linguist.
+struct LanguageTable {
+    /// Core table representing all language data.
+    id_to_data_map: HashMap<LanguageId, LanguageDataWithName>,
+    /// This is computed once on construction so that languages
+    /// can be traversed in a deterministic way for any maps that
+    /// need to be generated.
+    sorted_names: Vec<(String, LanguageId)>,
+    /// Original data from the languages.yml file, kept as-is.
+    parsed_map: ParsedLanguageMap,
+    linguist_root_dir: PathBuf,
+}
+
 impl LanguageTable {
-    fn new(parsed_map: ParsedLanguageMap) -> LanguageTable {
+    fn new<P: AsRef<Path>>(parsed_map: ParsedLanguageMap, p: P) -> LanguageTable {
         let mut out = HashMap::with_capacity(parsed_map.len());
         let mut names = Vec::with_capacity(parsed_map.len());
         for (original_name, dto) in parsed_map.clone().into_iter() {
@@ -145,245 +272,23 @@ impl LanguageTable {
             }
         }
         names.sort();
-        LanguageTable { id_to_data_map: out, sorted_names: names, parsed_map }
-    }
-}
-
-struct LanguageDataWithName {
-    original_name: String,
-    dto: LanguageDTO,
-}
-
-#[derive(Deserialize, Clone)]
-struct LanguageDTO {
-    filenames: Option<Vec<String>>,
-    interpreters: Option<Vec<String>>,
-    extensions: Option<Vec<String>>,
-    language_id: i64,
-    #[serde(rename(deserialize = "type"))]
-    language_type: LanguageType,
-    color: Option<String>,
-    group: Option<String>,
-}
-
-impl LanguageDTO {
-    fn id(&self, name: &str) -> LanguageId {
-        LanguageId { value: self.language_id, identifier: Rc::new(Identifier::new(name)) }
+        
+        let table = LanguageTable { id_to_data_map: out, sorted_names: names, parsed_map, linguist_root_dir: p.as_ref().to_owned() };
+        table.check_invariants();
+        table
     }
 
-    fn to_domain_object_code(&self, name: &str) -> String {
-        format!(
-            "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
-            name,
-            self.language_type.to_domain_object_code(),
-            self.color,
-            self.group
-        )
+    fn check_invariants(&self) {
+        // TODO: Implement this...
     }
-}
 
-#[derive(Deserialize, Debug, Clone)]
-enum LanguageType {
-    #[serde(rename = "data")]
-    Data,
-    #[serde(rename = "markup")]
-    Markup,
-    #[serde(rename = "programming")]
-    Programming,
-    #[serde(rename = "prose")]
-    Prose,
-}
-
-impl LanguageType {
-    fn to_domain_object_code(&self) -> String {
-        format!("LanguageType::{:?}", self)
-    }
-}
-
-
-
-#[derive(Deserialize)]
-struct Heuristics<L> {
-    disambiguations: Vec<Disambiguation<L>>,
-    named_patterns: NamedPatterns,
-}
-
-#[derive(Deserialize)]
-struct Disambiguation<L> {
-    extensions: Vec<String>,
-    rules: Vec<Rule<L>>,
-}
-
-impl<L> Rule<L> {
-    fn map_language<A>(self, f: &dyn Fn(L) -> A) -> Rule<A> {
-        Rule {
-            language: self.language.map(f),
-            pattern: self.pattern,
-        }
-    }
-}
-
-impl Disambiguation<LanguageId> {
-    fn to_domain_object_code(rules: &[Rule<LanguageId>], named_patterns: &NamedPatterns) -> String {
-        let mut buf = String::new();
-        buf.push_str("&[");
-        for rule in rules.iter() {
-            buf.push_str(rule.to_domain_object_code(named_patterns).as_str());
-            buf.push(',');
-        }
-        buf.push(']');
-        buf
-    }
-}
-
-#[derive(Clone, Deserialize)]
-struct Rule<L> {
-    language: MaybeMany<L>,
-    #[serde(flatten)]
-    pattern: Option<PatternDTO>,
-}
-
-impl Rule<LanguageId> {
-    fn to_domain_object_code(&self, named_patterns: &NamedPatterns) -> String {
-        let ids = match &self.language {
-            MaybeMany::Many(values) => values.clone(),
-            MaybeMany::One(value) => vec![value.clone()],
-        };
-
-        let pattern_code = match &self.pattern {
-            Some(pattern) => format!("Some({})", pattern.to_domain_object_code(named_patterns)),
-            None => String::from("None"),
-        };
-
-        format!(
-            "Rule {{ languages: {}, pattern: {}}}",
-            LanguageId::slice_to_string(&ids, " "),
-            pattern_code
-        )
-    }
-}
-
-#[derive(Clone, Deserialize)]
-enum PatternDTO {
-    #[serde(rename = "and")]
-    And(Vec<PatternDTO>),
-    #[serde(rename = "named_pattern")]
-    Named(String),
-    #[serde(rename = "negative_pattern")]
-    Negative(String),
-    #[serde(rename = "pattern")]
-    Positive(MaybeMany<String>),
-}
-
-impl PatternDTO {
-    fn to_domain_object_code(&self, named_patterns: &NamedPatterns) -> String {
-        match self {
-            PatternDTO::Positive(MaybeMany::One(pattern)) => {
-                // Panic on invalid regex now so we can unwrap in lib
-                if let Err(e) = PCRERegex::new(pattern) {
-                    panic!("Invalid regex pattern: {}\n{}", pattern, e);
-                }
-                format!("Pattern::Positive({:?})", pattern)
-            }
-            PatternDTO::Negative(pattern) => {
-                // Panic on invalid regex now so we can unwrap in lib
-                if let Err(e) = PCRERegex::new(pattern) {
-                    panic!("Invalid regex pattern: {}\n{}", pattern, e);
-                }
-                format!("Pattern::Negative({:?})", pattern)
-            }
-            PatternDTO::Positive(MaybeMany::Many(patterns)) => {
-                let mut code = String::from("Pattern::Or(&[");
-                for pattern in patterns.iter() {
-                    let p = PatternDTO::Positive(MaybeMany::One(pattern.clone()));
-                    code.push_str(format!("{},", p.to_domain_object_code(named_patterns)).as_str());
-                }
-                code.push_str("])");
-                code
-            }
-            PatternDTO::And(patterns) => {
-                let mut code = String::from("Pattern::And(&[");
-                for pattern in patterns.iter() {
-                    code.push_str(
-                        format!("{},", pattern.to_domain_object_code(named_patterns)).as_str(),
-                    );
-                }
-                code.push_str("])");
-                code
-            }
-            PatternDTO::Named(pattern_name) => {
-                if let Some(pattern) = named_patterns.get(pattern_name) {
-                    // Assume that all named patterns are positive
-                    let pattern = PatternDTO::Positive(pattern.clone());
-                    pattern.to_domain_object_code(named_patterns)
-                } else {
-                    panic!(
-                        "Named pattern: {} not found in named pattern map",
-                        pattern_name
-                    )
-                }
-            }
-        }
-    }
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(untagged)]
-enum MaybeMany<T> {
-    Many(Vec<T>),
-    One(T),
-}
-
-impl<T> MaybeMany<T> {
-    fn map<A>(self, f: &dyn Fn(T) -> A) -> MaybeMany<A> {
-        match self {
-            Self::Many(vs) => MaybeMany::Many(vs.into_iter().map(f).collect()),
-            Self::One(t) => MaybeMany::One(f(t)),
-        }
-    }
-}
-
-const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuristics_map.rs";
-const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
-const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
-const INTERPRETER_MAP_FILE: &str = "src/generated/interpreter_language_map.rs";
-const LANGUAGE_DATA_FILE: &str = "src/generated/language_data_map.rs";
-const LANGUAGE_LIST_FILE: &str = "src/generated/languages.rs";
-const TOKEN_LOG_PROBABILITY_FILE: &str = "src/generated/token_log_probabilities.rs";
-
-const HEURISTICS_SOURCE_FILE: &str = "external/com_github_linguist/lib/linguist/heuristics.yml";
-const LANGUAGE_SOURCE_FILE: &str = "external/com_github_linguist/lib/linguist/languages.yml";
-const SAMPLES_DIR: &str = "external/com_github_linguist/samples";
-
-const MAX_TOKEN_BYTES: usize = 32;
-
-fn main() {
-    let parsed_map: ParsedLanguageMap =
-        serde_yaml::from_reader(File::open(LANGUAGE_SOURCE_FILE).unwrap()).unwrap();
-    let language_table = LanguageTable::new(parsed_map);
-
-    language_table.write_language_list();
-    language_table.write_language_data();
-    language_table.create_filename_map();
-    language_table.create_extension_map();
-    language_table.create_interpreter_map();
-
-    let heuristics: Heuristics<String> =
-        serde_yaml::from_str(&fs::read_to_string(HEURISTICS_SOURCE_FILE).unwrap()[..]).unwrap();
-
-    language_table.create_disambiguation_heuristics_map(heuristics);
-
-    language_table.train_classifier();
-}
-
-impl LanguageTable {
     fn write_language_list(&self) {
         let mut enum_branches = Vec::with_capacity(self.id_to_data_map.len());
         let mut i64_to_id_map = PhfMap::new();
         let mut id_list = Vec::with_capacity(self.id_to_data_map.len());
         for (_, id) in self.sorted_names.iter() {
             enum_branches.push(format!("{} = {}", id.identifier.as_ref(), id.value));
-            i64_to_id_map.entry(id.value, &format!("Language::{}", id.identifier.as_ref()));
+            i64_to_id_map.entry(id.value, &format!("{}", id.prefixed_id()));
             id_list.push(id.clone());
         }
     
@@ -436,7 +341,7 @@ impl Language {{
             let info = self.id_to_data_map.get(id).unwrap();
             language_info_map.entry(
                 id,
-                &info.dto.to_domain_object_code(&language_name[..])[..],
+                &info.dto.to_rust_code(&language_name[..])[..],
             );
         }
         let built_map = language_info_map.build();
@@ -556,7 +461,7 @@ impl Language {{
         let mut temp_token_count: HashMap<LanguageId, HashMap<String, i32>> = HashMap::new();
         let mut temp_total_tokens_count = HashMap::new();
     
-        fs::read_dir(SAMPLES_DIR)
+        fs::read_dir(self.linguist_root_dir.join("samples"))
             .unwrap()
             .map(|entry| entry.unwrap())
             .filter(|entry| entry.path().is_dir())
@@ -666,7 +571,7 @@ impl Language {{
                         .id(&lang_name)
                     }))
                     .collect();
-                let value = Disambiguation::to_domain_object_code(&rules, &heuristics.named_patterns);
+                let value = Disambiguation::to_rust_code(&rules, &heuristics.named_patterns);
                 temp_map.insert(key, value);
             }
         }
@@ -684,5 +589,153 @@ impl Language {{
             built_map,
         )
         .unwrap();
+    }
+}
+
+struct LanguageDataWithName {
+    original_name: String,
+    dto: ParsedLanguage,
+}
+
+type NamedPatterns = HashMap<String, MaybeMany<String>>;
+
+#[derive(Deserialize)]
+struct Heuristics<L> {
+    disambiguations: Vec<Disambiguation<L>>,
+    named_patterns: NamedPatterns,
+}
+
+#[derive(Deserialize)]
+struct Disambiguation<L> {
+    extensions: Vec<String>,
+    rules: Vec<Rule<L>>,
+}
+
+impl<L> Rule<L> {
+    fn map_language<A>(self, f: &dyn Fn(L) -> A) -> Rule<A> {
+        Rule {
+            language: self.language.map(f),
+            pattern: self.pattern,
+        }
+    }
+}
+
+impl Disambiguation<LanguageId> {
+    fn to_rust_code(rules: &[Rule<LanguageId>], named_patterns: &NamedPatterns) -> String {
+        let mut buf = String::new();
+        buf.push_str("&[");
+        for rule in rules.iter() {
+            buf.push_str(rule.to_rust_code(named_patterns).as_str());
+            buf.push(',');
+        }
+        buf.push(']');
+        buf
+    }
+}
+
+#[derive(Clone, Deserialize)]
+struct Rule<L> {
+    language: MaybeMany<L>,
+    #[serde(flatten)]
+    pattern: Option<ParsedPattern>,
+}
+
+impl Rule<LanguageId> {
+    fn to_rust_code(&self, named_patterns: &NamedPatterns) -> String {
+        let ids = match &self.language {
+            MaybeMany::Many(values) => values.clone(),
+            MaybeMany::One(value) => vec![value.clone()],
+        };
+
+        let pattern_code = match &self.pattern {
+            Some(pattern) => format!("Some({})", pattern.to_rust_code(named_patterns)),
+            None => String::from("None"),
+        };
+
+        format!(
+            "Rule {{ languages: {}, pattern: {}}}",
+            LanguageId::slice_to_string(&ids, " "),
+            pattern_code
+        )
+    }
+}
+
+#[derive(Clone, Deserialize)]
+enum ParsedPattern {
+    #[serde(rename = "and")]
+    And(Vec<ParsedPattern>),
+    #[serde(rename = "named_pattern")]
+    Named(String),
+    #[serde(rename = "negative_pattern")]
+    Negative(String),
+    #[serde(rename = "pattern")]
+    Positive(MaybeMany<String>),
+}
+
+impl ParsedPattern {
+    fn to_rust_code(&self, named_patterns: &NamedPatterns) -> String {
+        match self {
+            ParsedPattern::Positive(MaybeMany::One(pattern)) => {
+                // Panic on invalid regex now so we can unwrap in lib
+                if let Err(e) = PCRERegex::new(pattern) {
+                    panic!("Invalid regex pattern: {}\n{}", pattern, e);
+                }
+                format!("Pattern::Positive({:?})", pattern)
+            }
+            ParsedPattern::Negative(pattern) => {
+                // Panic on invalid regex now so we can unwrap in lib
+                if let Err(e) = PCRERegex::new(pattern) {
+                    panic!("Invalid regex pattern: {}\n{}", pattern, e);
+                }
+                format!("Pattern::Negative({:?})", pattern)
+            }
+            ParsedPattern::Positive(MaybeMany::Many(patterns)) => {
+                let mut code = String::from("Pattern::Or(&[");
+                for pattern in patterns.iter() {
+                    let p = ParsedPattern::Positive(MaybeMany::One(pattern.clone()));
+                    code.push_str(format!("{},", p.to_rust_code(named_patterns)).as_str());
+                }
+                code.push_str("])");
+                code
+            }
+            ParsedPattern::And(patterns) => {
+                let mut code = String::from("Pattern::And(&[");
+                for pattern in patterns.iter() {
+                    code.push_str(
+                        format!("{},", pattern.to_rust_code(named_patterns)).as_str(),
+                    );
+                }
+                code.push_str("])");
+                code
+            }
+            ParsedPattern::Named(pattern_name) => {
+                if let Some(pattern) = named_patterns.get(pattern_name) {
+                    // Assume that all named patterns are positive
+                    let pattern = ParsedPattern::Positive(pattern.clone());
+                    pattern.to_rust_code(named_patterns)
+                } else {
+                    panic!(
+                        "Named pattern: {} not found in named pattern map",
+                        pattern_name
+                    )
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(untagged)]
+enum MaybeMany<T> {
+    Many(Vec<T>),
+    One(T),
+}
+
+impl<T> MaybeMany<T> {
+    fn map<A>(self, f: &dyn Fn(T) -> A) -> MaybeMany<A> {
+        match self {
+            Self::Many(vs) => MaybeMany::Many(vs.into_iter().map(f).collect()),
+            Self::One(t) => MaybeMany::One(f(t)),
+        }
     }
 }
