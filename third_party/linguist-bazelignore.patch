@@ -1,0 +1,7 @@
+diff --git .bazelignore .bazelignore
+new file mode 100644
+index 00000000..a76deea3
+--- /dev/null
++++ .bazelignore
+@@ -0,0 +1 @@
++samples/Starlark/filenames

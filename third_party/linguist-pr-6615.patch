@@ -1,0 +1,7 @@
+diff --git lib/linguist/languages.yml lib/linguist/languages.yml
+index 88c42528..67f15e5a 100644
+--- lib/linguist/languages.yml
++++ lib/linguist/languages.yml
+@@ -1664 +1664 @@ ECLiPSe:
+-  group: prolog
++  group: Prolog
