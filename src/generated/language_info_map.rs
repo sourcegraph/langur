@@ -309,7 +309,7 @@ static LANGUAGE_INFO: phf::Map<&'static str, Language> =
         ("WebIDL", Language { name: "WebIDL", language_type: LanguageType::Programming, color: None, group: None }),
         ("D2", Language { name: "D2", language_type: LanguageType::Markup, color: Some("#526ee8"), group: None }),
         ("NewLisp", Language { name: "NewLisp", language_type: LanguageType::Programming, color: Some("#87AED7"), group: None }),
-        ("ECLiPSe", Language { name: "ECLiPSe", language_type: LanguageType::Programming, color: Some("#001d9d"), group: Some("prolog") }),
+        ("ECLiPSe", Language { name: "ECLiPSe", language_type: LanguageType::Programming, color: Some("#001d9d"), group: Some("Prolog") }),
         ("Open Policy Agent", Language { name: "Open Policy Agent", language_type: LanguageType::Programming, color: Some("#7d9199"), group: None }),
         ("Meson", Language { name: "Meson", language_type: LanguageType::Programming, color: Some("#007800"), group: None }),
         ("Cython", Language { name: "Cython", language_type: LanguageType::Programming, color: Some("#fedf5b"), group: None }),
