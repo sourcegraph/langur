@@ -19,6 +19,7 @@ const DISAMBIGUATION_HEURISTICS_FILE: &str = "src/generated/disambiguation_heuri
 const EXTENSION_MAP_FILE: &str = "src/generated/extension_language_map.rs";
 const FILENAME_MAP_FILE: &str = "src/generated/filename_language_map.rs";
 const INTERPRETER_MAP_FILE: &str = "src/generated/interpreter_language_map.rs";
+const ALIASES_MAP_FILE: &str = "src/generated/aliases_language_map.rs";
 const LANGUAGE_DATA_FILE: &str = "src/generated/language_data_map.rs";
 const LANGUAGE_LIST_FILE: &str = "src/generated/languages.rs";
 const TOKEN_LOG_PROBABILITY_FILE: &str = "src/generated/token_log_probabilities.rs";
@@ -41,6 +42,7 @@ fn main() {
     language_table.create_filename_map();
     language_table.create_extension_map();
     language_table.create_interpreter_map();
+    language_table.create_aliases_map();
 
     let heuristics: Heuristics<String> =
         serde_yaml::from_reader(File::open(
@@ -65,6 +67,7 @@ struct ParsedLanguage {
     language_type: LanguageType,
     color: Option<String>,
     group: Option<String>,
+    aliases: Option<Vec<String>>,
 }
 
 impl ParsedLanguage {
@@ -82,11 +85,12 @@ impl ParsedLanguage {
             None => None,
         };
         format!(
-            "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?} }}",
+            "LanguageData {{ name: \"{}\", language_type: {}, color: {:?}, group: {:?}, aliases: &{:?} }}",
             name,
             self.language_type.to_rust_code(),
             self.color,
             opt_group_id,
+            self.aliases.as_ref().unwrap(),
         )
     }
 }
@@ -171,7 +175,7 @@ impl FmtConst for LanguageId {
 }
 
 /// Represents identifiers in codegen, via the Display impl.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Identifier {
     text: String,
 }
@@ -263,10 +267,22 @@ impl LanguageTable {
     fn new<P: AsRef<Path>>(parsed_map: ParsedLanguageMap, p: P) -> LanguageTable {
         let mut out = HashMap::with_capacity(parsed_map.len());
         let mut names = Vec::with_capacity(parsed_map.len());
-        for (original_name, dto) in parsed_map.clone().into_iter() {
+        for (original_name, mut dto) in parsed_map.clone().into_iter() {
+            // See https://sourcegraph.com/github.com/github-linguist/linguist@7ca3799b8b5f1acde1dd7a8dfb7ae849d3dfb4cd/-/blob/lib/linguist/languages.yml?L7-8
+            // We call to_lowercase explicitly since a bunch of aliases
+            // in languages.yml are stored in uppercase, such
+            // as "Protocol Buffers"
+            let mut v: Vec<_> = dto.aliases.unwrap_or_default().into_iter().map(|s| s.to_lowercase()).collect();
+            v.push(original_name.to_lowercase());
+            // For 'R', the aliases list contains 'R' too, so de-dupe.
+            v.sort();
+            v.dedup();
+            dto.aliases = Some(v);
+
             let id = dto.id(&original_name);
             names.push((original_name.clone(), id.clone()));
             let old_value = out.insert(id, LanguageDataWithName { original_name, dto });
+            // Invariant 1: All IDs are distinct.
             if let Some(old_data_with_name) = old_value {
                 panic!("Language ID: {} is repeated twice", old_data_with_name.dto.language_id);
             }
@@ -279,7 +295,31 @@ impl LanguageTable {
     }
 
     fn check_invariants(&self) {
-        // TODO: Implement this...
+        // Invariant 2: No overlaps in aliases.
+        {
+            let mut alias_map = HashMap::new();
+            for (id, lang_data) in self.id_to_data_map.iter() {
+                if let Some(aliases) = lang_data.dto.aliases.as_ref() {
+                    for alias in aliases.iter() {
+                        // Invariant 3: All aliases are lowercased.
+                        assert!(alias == &alias.to_lowercase(), "Alias {} for language {} is not lowercase", alias, id.identifier);
+                        if let Some(old_id) = alias_map.insert(alias.clone(), id) {
+                            panic!("Attempting to add alias {} for language {} but it is already used by {}",
+                                alias, id.identifier, old_id.identifier);
+                        }
+                    }
+                }
+            }
+        }
+        // Invariant 4: All identifier names are distinct.
+        {
+            let mut ident_map = HashMap::new();
+            for (lang_name, id) in self.sorted_names.iter() {
+                if let Some(old_name) = ident_map.insert(id.identifier.as_ref(), lang_name.clone()) {
+                    panic!("Same identifier added for different languages: {old_name} and {lang_name}");
+                }
+            }
+        }
     }
 
     fn write_language_list(&self) {
@@ -447,6 +487,31 @@ impl Language {{
         writeln!(
             &mut file,
 "static EXTENSIONS: phf::Map<&'static str, &[crate::Language]> = {{
+    use crate::Language;
+
+    {}
+}};
+",
+            built_map,
+        )
+        .unwrap();
+    }
+
+    fn create_aliases_map(&self) {
+        let mut alias_to_language_map = PhfMap::new();
+        for (language_name, id) in self.sorted_names.iter() {
+            if let Some(aliases) = &self.id_to_data_map.get(id).unwrap().dto.aliases {
+                for alias in aliases.iter() {
+                    alias_to_language_map.entry(alias, &format!("{}", id.prefixed_id()));
+                }
+            }
+        }
+
+        let built_map = alias_to_language_map.build();
+        let mut file = BufWriter::new(File::create(ALIASES_MAP_FILE).unwrap());
+        writeln!(
+            &mut file,
+"static ALIASES_TO_LANGUAGE_MAP: phf::Map<&'static str, &[crate::Language]> = {{
     use crate::Language;
 
     {}

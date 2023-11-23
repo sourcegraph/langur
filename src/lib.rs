@@ -55,6 +55,10 @@ struct LanguageData {
     pub color: Option<&'static str>,
     /// Name of the parent language. ex/ The group for TSX would be TypeScript
     pub group: Option<Language>,
+    /// Non-empty list of aliases allowed for this language.
+    ///
+    /// Always contains at least the lowercased name of the language.
+    aliases: &'static [&'static str],
 }
 
 /// An enum where the variant is the strategy that detected the language and the value is the name
@@ -371,19 +375,21 @@ mod tests {
             .map(|entry| entry.unwrap())
             .filter(|entry| entry.path().is_dir())
             .flat_map(|language_dir| {
-                let path = language_dir.path();
-                let language = path.file_name().unwrap();
-                let language = language.to_string_lossy().into_owned();
+                let lang_folder_name = language_dir
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned();
 
                 let file_paths = fs::read_dir(language_dir.path())
                     .unwrap()
                     .map(|entry| entry.unwrap().path())
                     .filter(|path| path.is_file());
 
-                let language_iter = iter::repeat(language);
-                file_paths.zip(language_iter)
+                file_paths.zip(iter::repeat(lang_folder_name))
             })
-            .for_each(|(file, language)| {
+            .for_each(|(file, folder_name)| {
                 // Skip the files we can't detect. The reason the detect function
                 // fails on these is because of a heuristic added to .h files
                 // that defaults to C if none of the Objective-C or C++ rules
@@ -395,14 +401,16 @@ mod tests {
                     return;
                 }
                 // F* uses the name Fstar in the file system
-                let folder_name = match &language[..] {
+                // This is covered by the fs_name field in languages.yml,
+                // but we don't emit that field in the generated Rust code.
+                let language_name_from_folder_name = match &folder_name[..] {
                     "Fstar" => "F*",
                     l => l,
                 };
                 if let Ok(Some(detection)) = detect(&file) {
                     total += 1;
                     let language_name = crate::language::LANGUAGE_DATA_MAP.get(&detection.language()).unwrap().name;
-                    if language_name == folder_name {
+                    if language_name == language_name_from_folder_name {
                         correct += 1;
                     } else {
                         println!("Incorrect detection: {:?} {:?}", file, detection)
