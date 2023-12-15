@@ -5,9 +5,11 @@ use regex::Regex;
 // static INTERPRETERS: phf::Map<&'static str, &[&str]> = ...;
 include!("../generated/interpreter_language_map.rs");
 
+use crate::Language;
+
 pub(crate) fn get_languages_from_shebang<R: std::io::BufRead>(
     reader: R,
-) -> Result<Vec<&'static str>, std::io::Error> {
+) -> Result<Vec<Language>, std::io::Error> {
     let mut lines = reader.lines();
     let shebang_line = match lines.next() {
         Some(line) => line,
@@ -67,20 +69,21 @@ pub(crate) fn get_languages_from_shebang<R: std::io::BufRead>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Language as L;
     use std::io::Cursor;
 
     #[test]
     fn test_shebang_get_languages() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/python")).unwrap(),
-            vec!["Python"]
+            vec![L::Python]
         );
     }
     #[test]
     fn test_shebang_get_languages_env() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/env node")).unwrap(),
-            vec!["JavaScript"]
+            vec![L::JavaScript]
         );
     }
 
@@ -91,7 +94,7 @@ mod tests {
         parrot_langs.sort();
         assert_eq!(
             parrot_langs,
-            vec!["Parrot Assembly", "Parrot Internal Representation"]
+            vec![L::Parrot_Assembly, L::Parrot_Internal_Representation]
         );
     }
 
@@ -99,13 +102,13 @@ mod tests {
     fn test_shebang_get_languages_with_minor_version() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/python2.6")).unwrap(),
-            vec!["Python"]
+            vec![L::Python]
         );
     }
 
     #[test]
     fn test_shebang_empty_cases() {
-        let empty_vec: Vec<&'static str> = Vec::new();
+        let empty_vec: Vec<Language> = Vec::new();
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/env")).unwrap(),
             empty_vec
@@ -153,6 +156,6 @@ mod tests {
             "#,
         );
 
-        assert_eq!(get_languages_from_shebang(content).unwrap(), vec!["Scala"]);
+        assert_eq!(get_languages_from_shebang(content).unwrap(), vec![L::Scala]);
     }
 }

@@ -1,18 +1,20 @@
 #![allow(clippy::type_complexity)]
 
 use clap::{App, Arg};
+use ignore::{overrides::OverrideBuilder, WalkBuilder};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap},
-    convert::TryFrom,
+    env,
     io::{self, Write},
     path::{Path, PathBuf},
+    sync::mpsc,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use crate::{get_language_breakdown, Detection, Language, LanguageType};
+use crate::{detectors::Detection, filters, Language, LanguageType, LANGUAGE_DATA_MAP};
 
 struct CLIOptions {
     color: bool,
@@ -44,11 +46,15 @@ pub fn main() {
     let path = matches.value_of("PATH").unwrap();
     let breakdown = get_language_breakdown(path);
 
-    let mut language_count: Vec<(&'static str, Vec<(Detection, PathBuf)>)> = breakdown
+    let mut language_count: Vec<(Language, Vec<(Detection, PathBuf)>)> = breakdown
         .into_iter()
-        .filter(|(language_name, _)| {
-            matches!(Language::try_from(*language_name).map(|l| l.language_type), 
-                Ok(LanguageType::Markup) | Ok(LanguageType::Programming))
+        .filter(|(language, _)| {
+            matches!(
+                crate::LANGUAGE_DATA_MAP
+                    .get(language)
+                    .map(|l| l.language_type),
+                Some(LanguageType::Markup) | Some(LanguageType::Programming)
+            )
         })
         .collect();
     language_count.sort_by(|(_, a), (_, b)| b.len().cmp(&a.len()));
@@ -119,29 +125,92 @@ fn get_cli<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
+/// Walks the path provided and tallies the programming languages detected in the given path
+///
+/// Returns a map from the programming languages to a Vec of the files that were detected and the
+/// strategy used
+///
+/// # Examples
+/// ```
+/// use langur::get_language_breakdown;
+/// let breakdown = get_language_breakdown("src/");
+/// let total_detections = breakdown.iter().fold(0, |sum, (language, detections)| sum + detections.len());
+/// println!("Total files detected: {}", total_detections);
+/// ```
+fn get_language_breakdown<P: AsRef<Path>>(path: P) -> HashMap<Language, Vec<(Detection, PathBuf)>> {
+    let override_builder = OverrideBuilder::new(&path);
+    let override_builder = filters::add_documentation_override(override_builder);
+    let override_builder = filters::add_vendor_override(override_builder);
+
+    let num_threads = env::var_os("LANGUR_THREADS")
+        .and_then(|threads| threads.into_string().ok())
+        .and_then(|threads| threads.parse().ok())
+        .unwrap_or_else(num_cpus::get);
+
+    let (tx, rx) = mpsc::channel::<(Detection, PathBuf)>();
+    let walker = WalkBuilder::new(path)
+        .threads(num_threads)
+        .overrides(override_builder.build().unwrap())
+        .build_parallel();
+
+    walker.run(|| {
+        let tx = tx.clone();
+        Box::new(move |result| {
+            use ignore::WalkState::*;
+
+            if let Ok(path) = result {
+                let path = path.into_path();
+                if !path.is_dir() {
+                    if let Ok(Some(detection)) = crate::detectors::detect(&path) {
+                        tx.send((detection, path)).unwrap();
+                    }
+                }
+            }
+            Continue
+        })
+    });
+    drop(tx);
+
+    let mut language_breakdown = HashMap::new();
+    for (detection, file) in rx {
+        let files = language_breakdown
+            .entry(detection.language())
+            .or_insert_with(Vec::new);
+        files.push((detection, file));
+    }
+
+    language_breakdown
+}
+
 fn print_language_split(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
 ) -> Result<(), io::Error> {
     let total = language_counts
         .iter()
         .fold(0, |acc, (_, files)| acc + files.len()) as f64;
     for (language, files) in language_counts.iter() {
         let percentage = ((files.len() * 100) as f64) / total;
-        writeln!(io::stdout(), "{:.2}% {}", percentage, language)?;
+        writeln!(
+            io::stdout(),
+            "{:.2}% {}",
+            percentage,
+            LANGUAGE_DATA_MAP.get(language).unwrap().name
+        )?;
     }
 
     Ok(())
 }
 
 fn print_file_breakdown(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut stdout = StandardStream::stdout(options.color_option());
     for (language, breakdowns) in language_counts.iter() {
-        if options.matches_filter(language) {
+        let language_name = LANGUAGE_DATA_MAP.get(language).unwrap().name;
+        if options.matches_filter(language_name) {
             stdout.set_color(&TITLE_COLOR)?;
-            write!(stdout, "{}", language)?;
+            write!(stdout, "{}", language_name)?;
 
             stdout.set_color(&DEFAULT_COLOR)?;
             writeln!(stdout, " ({})", breakdowns.len())?;
@@ -158,20 +227,21 @@ fn print_file_breakdown(
 }
 
 fn print_strategy_breakdown(
-    language_counts: &[(&'static str, Vec<(Detection, PathBuf)>)],
+    language_counts: &[(Language, Vec<(Detection, PathBuf)>)],
     options: &CLIOptions,
 ) -> Result<(), io::Error> {
     let mut strategy_breakdown = HashMap::new();
     for (language, files) in language_counts.iter() {
+        let language_name = LANGUAGE_DATA_MAP.get(language).unwrap().name;
         for (detection, file) in files.iter() {
             let files = strategy_breakdown
                 .entry(detection.variant())
                 .or_insert(BinaryHeap::new());
-            files.push(Reverse((language, file)));
+            files.push(Reverse((language_name, file)));
         }
     }
 
-    let mut strategy_breakdowns: Vec<(&str, BinaryHeap<Reverse<(&&str, &PathBuf)>>)> =
+    let mut strategy_breakdowns: Vec<(&str, BinaryHeap<Reverse<(&str, &PathBuf)>>)> =
         strategy_breakdown.into_iter().collect();
     strategy_breakdowns.sort_by(|(_, a), (_, b)| b.len().cmp(&a.len()));
 
@@ -201,11 +271,6 @@ fn print_strategy_breakdown(
 
 fn strip_relative_parts(path: &Path) -> &Path {
     path.strip_prefix("./").unwrap_or(path)
-    // if let Some(path_without_prefix) = path.strip_prefix("./") {
-    //     path.strip_prefix("./").unwrap()
-    // } else {
-    //     path
-    // }
 }
 
 lazy_static! {
@@ -220,4 +285,28 @@ lazy_static! {
         language_color.set_fg(Some(Color::Green));
         language_color
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_language_breakdown;
+    use std::fs;
+
+    #[test]
+    fn test_get_language_breakdown_ignores_overrides_documentation() {
+        fs::create_dir_all("temp-testing-dir").unwrap();
+        fs::File::create("temp-testing-dir/README.md").unwrap();
+        assert!(get_language_breakdown("temp-testing-dir").is_empty());
+
+        fs::remove_dir_all("temp-testing-dir").unwrap();
+    }
+
+    #[test]
+    fn test_get_language_breakdown_ignores_overrides_vendor() {
+        fs::create_dir_all("temp-testing-dir2/node_modules").unwrap();
+        fs::File::create("temp-testing-dir2/node_modules/hello.go").unwrap();
+        assert!(get_language_breakdown("temp-testing-dir2").is_empty());
+
+        fs::remove_dir_all("temp-testing-dir2").unwrap();
+    }
 }

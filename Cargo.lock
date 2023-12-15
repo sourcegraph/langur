@@ -93,8 +93,11 @@ name = "codegen"
 version = "0.1.0"
 dependencies = [
  "langur_tokenizer",
+ "lazy_static",
  "pcre2",
  "phf_codegen",
+ "phf_shared",
+ "regex",
  "serde",
  "serde_yaml",
 ]
@@ -184,6 +187,7 @@ dependencies = [
  "num_cpus",
  "pcre2",
  "phf",
+ "phf_shared",
  "regex",
  "termcolor",
 ]

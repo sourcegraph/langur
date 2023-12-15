@@ -1,25 +1,26 @@
 // Include the map that contains the token log probabilities
-// static TOKEN_LOG_PROBABILITIES: phf::Map<&'static str, f64> = ...;
+// static TOKEN_LOG_PROBABILITIES: phf::Map<Language, f64> = ...;
 include!("../generated/token_log_probabilities.rs");
 
 // Include the array of all possible languages
-// static LANGUAGES: &[&'static str] = ...;
-include!("../generated/languages.rs");
 
 const MAX_TOKEN_BYTES: usize = 32;
 const DEFAULT_LOG_PROB: f64 = -19f64;
 
+use crate::Language;
+
 #[derive(Debug)]
 struct LanguageScore {
-    language: &'static str,
+    language: Language,
     score: f64,
 }
 
-pub(crate) fn classify(content: &str, candidates: &[&'static str]) -> &'static str {
-    let candidates = match candidates.len() {
-        0 => LANGUAGES,
-        _ => candidates,
-    };
+/// Pre-condition: !candidates.is_empty()
+pub(crate) fn classify(content: &str, candidates: &[Language]) -> Language {
+    assert!(
+        !candidates.is_empty(),
+        "classify requires 1 or more candidates"
+    );
 
     let tokens: Vec<_> = langur_tokenizer::get_key_tokens(content)
         .filter(|token| token.len() <= MAX_TOKEN_BYTES)
@@ -27,8 +28,8 @@ pub(crate) fn classify(content: &str, candidates: &[&'static str]) -> &'static s
 
     let mut scored_candidates: Vec<LanguageScore> = candidates
         .iter()
-        .map(|language| {
-            let score = match TOKEN_LOG_PROBABILITIES.get(language) {
+        .map(|&language| {
+            let score = match TOKEN_LOG_PROBABILITIES.get(&language) {
                 Some(token_map) => tokens
                     .iter()
                     .map(|token| token_map.get(*token).copied().unwrap_or(DEFAULT_LOG_PROB))
@@ -51,6 +52,7 @@ pub(crate) fn classify(content: &str, candidates: &[&'static str]) -> &'static s
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Language as L;
     use std::fs;
     use std::path::PathBuf;
 
@@ -61,19 +63,20 @@ mod tests {
     #[test]
     fn test_classify() {
         let content = fs::read_to_string(linguist_path("samples/Rust/main.rs")).unwrap();
-        let candidates = vec!["C", "Rust"];
-        let language = classify(content.as_str(), &candidates);
-        assert_eq!(language, "Rust");
+        let candidates = &[L::C, L::Rust];
+        let language = classify(content.as_str(), candidates);
+        assert_eq!(language, L::Rust);
 
-        let content = fs::read_to_string(linguist_path("samples/Erlang/170-os-daemons.es")).unwrap();
-        let candidates = vec!["Erlang", "JavaScript"];
-        let language = classify(content.as_str(), &candidates);
-        assert_eq!(language, "Erlang");
+        let content =
+            fs::read_to_string(linguist_path("samples/Erlang/170-os-daemons.es")).unwrap();
+        let candidates = &[L::Erlang, L::JavaScript];
+        let language = classify(content.as_str(), candidates);
+        assert_eq!(language, L::Erlang);
 
         let content = fs::read_to_string(linguist_path("samples/TypeScript/classes.ts")).unwrap();
-        let candidates = vec!["C++", "Java", "C#", "TypeScript"];
-        let language = classify(content.as_str(), &candidates);
-        assert_eq!(language, "TypeScript");
+        let candidates = &[L::Cpp, L::Java, L::CSharp, L::TypeScript];
+        let language = classify(content.as_str(), candidates);
+        assert_eq!(language, L::TypeScript);
     }
 
     #[test]
@@ -86,24 +89,26 @@ mod tests {
     }
 
     imp(args)"#;
-        let candidates = vec!["Rust", "RenderScript"];
-        let language = classify(sample, &candidates);
-        assert_eq!(language, "Rust");
+        let candidates = &[L::Rust, L::RenderScript];
+        let language = classify(sample, candidates);
+        assert_eq!(language, L::Rust);
     }
 
     #[test]
-    fn test_classify_empty_candidates() {
+    fn test_classify_empty_and_all_candidates() {
         let content = fs::read_to_string(linguist_path("samples/Rust/main.rs")).unwrap();
-        let candidates = vec![];
-        let language = classify(content.as_str(), &candidates);
-        assert_eq!(language, "Rust");
+        let candidates = &[];
+        assert!(std::panic::catch_unwind(|| { classify(content.as_str(), candidates) }).is_err());
+        let candidates = L::VARIANTS;
+        let language = classify(content.as_str(), candidates);
+        assert_eq!(language, L::Rust);
     }
 
     #[test]
     fn test_classify_f_star() {
         let content = fs::read_to_string(linguist_path("samples/Fstar/Hacl.HKDF.fst")).unwrap();
-        let candidates = vec![];
-        let language = classify(content.as_str(), &candidates);
-        assert_eq!(language, "F*");
+        let candidates = L::VARIANTS;
+        let language = classify(content.as_str(), candidates);
+        assert_eq!(language, L::Fstar);
     }
 }

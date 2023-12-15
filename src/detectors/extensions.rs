@@ -2,7 +2,9 @@
 // static EXTENSIONS: phf::Map<&'static str, &[&str]> = ...;
 include!("../generated/extension_language_map.rs");
 
-pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<&'static str> {
+use crate::Language;
+
+pub(crate) fn get_languages_from_extension(extension: &str) -> Vec<Language> {
     let languages = EXTENSIONS
         .get(extension)
         .map(|languages| languages.to_vec());
@@ -34,18 +36,18 @@ pub(crate) fn get_extension(filename: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Language as L;
 
     #[test]
     fn test_get_languages_from_extension() {
-        assert_eq!(get_languages_from_extension(".djs"), vec!["Dogescript"]);
-        assert_eq!(get_languages_from_extension(".cmake.in"), vec!["CMake"]);
+        assert_eq!(get_languages_from_extension(".djs"), vec![L::Dogescript]);
+        assert_eq!(get_languages_from_extension(".cmake.in"), vec![L::CMake]);
 
         let mut header_file_langs = get_languages_from_extension(".h");
         header_file_langs.sort();
-        assert_eq!(header_file_langs, vec!["C", "C++", "Objective-C"]);
+        assert_eq!(header_file_langs, vec![L::C, L::Cpp, L::Objective_C]);
 
-        let empty_vec: Vec<&'static str> = vec![];
-        assert_eq!(get_languages_from_extension(""), empty_vec);
+        assert_eq!(get_languages_from_extension(""), vec![]);
     }
 
     #[test]
