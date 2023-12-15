@@ -5,7 +5,7 @@ include!("../generated/filename_language_map.rs");
 pub(crate) fn get_language_from_filename(filename: &str) -> Option<crate::Language> {
     if let Some(slice) = FILENAME_TO_LANGUAGE_MAP.get(filename) {
         if slice.len() == 1 {
-            return Some(slice[0])
+            return Some(slice[0]);
         }
     }
     None

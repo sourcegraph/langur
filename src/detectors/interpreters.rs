@@ -69,8 +69,8 @@ pub(crate) fn get_languages_from_shebang<R: std::io::BufRead>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
     use crate::Language as L;
+    use std::io::Cursor;
 
     #[test]
     fn test_shebang_get_languages() {

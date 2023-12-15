@@ -17,7 +17,10 @@ struct LanguageScore {
 
 /// Pre-condition: !candidates.is_empty()
 pub(crate) fn classify(content: &str, candidates: &[Language]) -> Language {
-    assert!(!candidates.is_empty(), "classify requires 1 or more candidates");
+    assert!(
+        !candidates.is_empty(),
+        "classify requires 1 or more candidates"
+    );
 
     let tokens: Vec<_> = langur_tokenizer::get_key_tokens(content)
         .filter(|token| token.len() <= MAX_TOKEN_BYTES)
@@ -49,9 +52,9 @@ pub(crate) fn classify(content: &str, candidates: &[Language]) -> Language {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Language as L;
     use std::fs;
     use std::path::PathBuf;
-    use crate::Language as L;
 
     fn linguist_path(s: &str) -> PathBuf {
         PathBuf::from("external/com_github_linguist").join(s)
@@ -64,7 +67,8 @@ mod tests {
         let language = classify(content.as_str(), candidates);
         assert_eq!(language, L::Rust);
 
-        let content = fs::read_to_string(linguist_path("samples/Erlang/170-os-daemons.es")).unwrap();
+        let content =
+            fs::read_to_string(linguist_path("samples/Erlang/170-os-daemons.es")).unwrap();
         let candidates = &[L::Erlang, L::JavaScript];
         let language = classify(content.as_str(), candidates);
         assert_eq!(language, L::Erlang);
@@ -94,9 +98,7 @@ mod tests {
     fn test_classify_empty_and_all_candidates() {
         let content = fs::read_to_string(linguist_path("samples/Rust/main.rs")).unwrap();
         let candidates = &[];
-        assert!(std::panic::catch_unwind(|| {
-            classify(content.as_str(), candidates)
-        }).is_err());
+        assert!(std::panic::catch_unwind(|| { classify(content.as_str(), candidates) }).is_err());
         let candidates = L::VARIANTS;
         let language = classify(content.as_str(), candidates);
         assert_eq!(language, L::Rust);
