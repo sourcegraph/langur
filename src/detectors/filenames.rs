@@ -14,17 +14,17 @@ pub(crate) fn get_language_from_filename(filename: &str) -> Option<crate::Langua
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Language as L;
+    use crate::ids;
 
     #[test]
     fn test_get_language_from_filename() {
         assert_eq!(
             get_language_from_filename("APKBUILD"),
-            Some(L::Alpine_Abuild)
+            Some(ids::Alpine_Abuild)
         );
         assert_eq!(
             get_language_from_filename(".eslintrc.json"),
-            Some(L::JSON_with_Comments)
+            Some(ids::JSON_with_Comments)
         );
     }
 }

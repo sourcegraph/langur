@@ -1,0 +1,14 @@
+# To accommodate the following requirements:
+#
+# 1. We want to have symbolic names for languages (instead of
+#    strings) for better auto-completion when using an IDE.
+# 2. The upstream languages.yml file sometimes removes languages.
+# 3. We don't want to bump the major version number every time
+#    we bump Linguist version (and hence run the chance of
+#    removing certain cases)
+#
+# We maintain the list of languages that we removed from Linguist.
+Genero:
+  replaced_by: 'Genero 4gl'
+Genero Forms:
+  replaced_by: 'Genero per'

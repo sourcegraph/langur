@@ -12,6 +12,16 @@ pub mod cli;
 
 include!("generated/languages.rs");
 
+impl std::fmt::Debug for Language {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(data) = LANGUAGE_DATA_MAP.get(self) {
+            write!(f, "ids::{}", data.name)
+        } else {
+            write!(f, "Language {{ id: {} }}", self.id)
+        }
+    }
+}
+
 impl PhfBorrow<Language> for Language {
     fn borrow(&self) -> &Language {
         self
@@ -20,17 +30,17 @@ impl PhfBorrow<Language> for Language {
 
 impl PhfHash for Language {
     fn phf_hash<H: Hasher>(&self, state: &mut H) {
-        (*self as i64).phf_hash(state)
+        self.id.phf_hash(state)
     }
 }
 
 impl TryFrom<i64> for Language {
     type Error = ();
     fn try_from(id: i64) -> Result<Self, Self::Error> {
-        match I64_TO_LANGUAGE_MAP.get(&id) {
-            Some(language) => Ok(*language),
-            None => Err(()),
+        if LANGUAGE_ID_SET.contains(&id) {
+            return Ok(Language { id })
         }
+        Err(())
     }
 }
 

@@ -19,16 +19,15 @@ http_archive(
     urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.30.0/rules_rust-v0.30.0.tar.gz"],
 )
 
-_LINGUIST_VERSION = "7.27.0"
+_LINGUIST_VERSION = "7.28.0"
 http_archive(
     name = "com_github_linguist",
-    sha256 = "3d2c2f5bce2af68a52bc300c2e4991145ad201826b0c73358e89127d85e30d0e",
+    sha256 = "57d0a9e5139cd4d209023256b28e7e8ca1b61cae3e7cafcff015094f9669f700",
     urls = ["https://github.com/github-linguist/linguist/archive/refs/tags/v%s.tar.gz" % _LINGUIST_VERSION],
     strip_prefix = "linguist-%s" % _LINGUIST_VERSION,
     build_file = "//third_party:linguist.BUILD",
     patches = [
         "//third_party:linguist-bazelignore.patch",
-        "//third_party:linguist-pr-6615.patch",
     ],
 )
 
