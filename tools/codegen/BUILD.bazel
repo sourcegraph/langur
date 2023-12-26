@@ -1,13 +1,42 @@
 load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+
+rust_library(
+    name = "codegen_lib",
+    crate_name = "codegen",
+    srcs = ["src/lib.rs"],
+    aliases = aliases(),
+    deps = all_crate_deps(normal = True),
+    data = [
+        "@com_github_linguist//:yaml_config",
+        "data/deprecated_languages.yml"
+    ],
+    visibility = ["//visibility:public"],
+)
 
 rust_binary(
     name = "codegen",
-    srcs = ["src/main.rs"],
+    srcs = ["src/bin/codegen.rs"],
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
-    deps = all_crate_deps(normal = True) + ["//crates/langur_tokenizer:langur_tokenizer_lib"],
-    data = ["@com_github_linguist//:samples", "@com_github_linguist//:yaml_config", "//:generated"],
+    deps = all_crate_deps(normal = True) + [
+        ":codegen_lib",
+        "//crates/langur_tokenizer:langur_tokenizer_lib"
+    ],
+    data = [
+        "@com_github_linguist//:samples",
+        "//:generated",
+    ],
+    visibility = ["//visibility:public"],
+    tags = ["manual"],
+)
+
+rust_binary(
+    name = "check_deleted_langs",
+    srcs = ["src/bin/check_deleted_langs.rs"],
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True) + [":codegen_lib"],
     visibility = ["//visibility:public"],
     tags = ["manual"],
 )

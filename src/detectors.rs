@@ -81,7 +81,7 @@ fn filter_candidates<L: PartialEq + Copy>(
 /// ```
 /// let path = Path::new("src/bin/main.rs");
 /// let language = detect(path).unwrap().unwrap();
-/// assert_eq!(Detection::Heuristics(Language::Rust), language);
+/// assert_eq!(Detection::Heuristics(ids::Rust), language);
 /// ```
 pub(crate) fn detect(path: &Path) -> Result<Option<Detection>, std::io::Error> {
     let filename = match path.file_name() {
@@ -161,6 +161,7 @@ fn truncate_to_char_boundary(s: &str, mut max: usize) -> &str {
 #[cfg(test)]
 mod tests {
     use super::filter_candidates;
+    use crate::ids;
 
     use super::*;
     use std::fs;
@@ -175,7 +176,7 @@ mod tests {
 
         assert_eq!(
             detected_language,
-            Detection::Filename(Language::Alpine_Abuild)
+            Detection::Filename(ids::Alpine_Abuild)
         );
     }
 
@@ -186,7 +187,7 @@ mod tests {
 
         assert_eq!(
             detected_language,
-            Detection::Extension(Language::PureScript)
+            Detection::Extension(ids::PureScript)
         );
     }
 
@@ -201,7 +202,7 @@ mod tests {
 
         fs::remove_file(path).unwrap();
 
-        assert_eq!(detected_language, Detection::Shebang(Language::Python));
+        assert_eq!(detected_language, Detection::Shebang(ids::Python));
     }
 
     #[test]
@@ -217,7 +218,7 @@ mod tests {
 
         assert_eq!(
             detected_language,
-            Detection::Heuristics(Language::JavaScript)
+            Detection::Heuristics(ids::JavaScript)
         );
     }
 
@@ -239,7 +240,7 @@ mod tests {
         let detected_language = detect(path).unwrap().unwrap();
 
         fs::remove_file(path).unwrap();
-        assert_eq!(detected_language, Detection::Classifier(Language::Rust));
+        assert_eq!(detected_language, Detection::Classifier(ids::Rust));
     }
 
     #[test]
@@ -265,6 +266,16 @@ mod tests {
 
     fn linguist_path(s: &str) -> PathBuf {
         PathBuf::from("external/com_github_linguist").join(s)
+    }
+
+    #[test]
+    fn test_debug_no_panic() {
+        for language in Language::VARIANTS {
+            write!(std::io::sink(), "{:?}", language).unwrap();
+        }
+        for language in Language::DEPRECATED_VARIANTS {
+            write!(std::io::sink(), "{:?}", language).unwrap();
+        }
     }
 
     #[test]

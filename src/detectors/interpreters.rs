@@ -69,21 +69,21 @@ pub(crate) fn get_languages_from_shebang<R: std::io::BufRead>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Language as L;
+    use crate::ids;
     use std::io::Cursor;
 
     #[test]
     fn test_shebang_get_languages() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/python")).unwrap(),
-            vec![L::Python]
+            vec![ids::Python]
         );
     }
     #[test]
     fn test_shebang_get_languages_env() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/env node")).unwrap(),
-            vec![L::JavaScript]
+            vec![ids::JavaScript]
         );
     }
 
@@ -94,7 +94,7 @@ mod tests {
         parrot_langs.sort();
         assert_eq!(
             parrot_langs,
-            vec![L::Parrot_Assembly, L::Parrot_Internal_Representation]
+            vec![ids::Parrot_Assembly, ids::Parrot_Internal_Representation]
         );
     }
 
@@ -102,7 +102,7 @@ mod tests {
     fn test_shebang_get_languages_with_minor_version() {
         assert_eq!(
             get_languages_from_shebang(Cursor::new("#!/usr/bin/python2.6")).unwrap(),
-            vec![L::Python]
+            vec![ids::Python]
         );
     }
 
@@ -156,6 +156,6 @@ mod tests {
             "#,
         );
 
-        assert_eq!(get_languages_from_shebang(content).unwrap(), vec![L::Scala]);
+        assert_eq!(get_languages_from_shebang(content).unwrap(), vec![ids::Scala]);
     }
 }

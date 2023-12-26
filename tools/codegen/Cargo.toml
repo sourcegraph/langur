@@ -5,6 +5,14 @@ authors = ["Varun Gandhi <varun.gandhi@sourcegraph.com", "Connor Monks <monkslc@
 edition = "2021"
 default-run = "codegen"
 
+[[bin]]
+name = "codegen"
+path = "src/bin/codegen.rs"
+
+[[bin]]
+name = "check_deleted_langs"
+path = "src/bin/check_deleted_langs.rs"
+
 [dependencies]
 lazy_static = { workspace = true }
 pcre2 = { workspace = true }
@@ -14,3 +22,4 @@ langur_tokenizer = { workspace = true }
 serde = { version = "1.0.105", features = ["derive"] }
 serde_yaml = "0.8"
 regex = { workspace = true }
+reqwest = { version = "0.11.23", features = ["blocking"] }

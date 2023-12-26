@@ -36,16 +36,16 @@ pub(crate) fn get_extension(filename: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Language as L;
+    use crate::ids;
 
     #[test]
     fn test_get_languages_from_extension() {
-        assert_eq!(get_languages_from_extension(".djs"), vec![L::Dogescript]);
-        assert_eq!(get_languages_from_extension(".cmake.in"), vec![L::CMake]);
+        assert_eq!(get_languages_from_extension(".djs"), vec![ids::Dogescript]);
+        assert_eq!(get_languages_from_extension(".cmake.in"), vec![ids::CMake]);
 
         let mut header_file_langs = get_languages_from_extension(".h");
         header_file_langs.sort();
-        assert_eq!(header_file_langs, vec![L::C, L::Cpp, L::Objective_C]);
+        assert_eq!(header_file_langs, vec![ids::C, ids::Cpp, ids::Objective_C]);
 
         assert_eq!(get_languages_from_extension(""), vec![]);
     }
