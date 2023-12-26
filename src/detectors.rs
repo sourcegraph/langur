@@ -321,7 +321,6 @@ mod tests {
                 };
                 if let Ok(Some(detection)) = detect(&file) {
                     total += 1;
-                    println!("{:?}", detection);
                     let language_name = crate::LANGUAGE_DATA_MAP
                         .get(&detection.language())
                         .unwrap()
