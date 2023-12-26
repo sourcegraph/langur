@@ -172,6 +172,10 @@ impl Hash for LanguageId {
 impl PhfHash for LanguageId {
     fn phf_hash<H: Hasher>(&self, state: &mut H) {
         self.value.phf_hash(state);
+        // It is important that only 'value' is inserted
+        // for the hash value here, because at runtime,
+        // only the 'value' field is available for computing
+        // the hash.
         assert!(!self.is_deprecated(), "deprecated languages aren't inserted into perfect hashmaps");
     }
 }

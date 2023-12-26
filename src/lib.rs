@@ -14,11 +14,7 @@ include!("generated/languages.rs");
 
 impl std::fmt::Debug for Language {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(data) = LANGUAGE_DATA_MAP.get(self) {
-            write!(f, "ids::{}", data.name)
-        } else {
-            write!(f, "Language {{ id: {} }}", self.id)
-        }
+        write!(f, "ids::{}", LANGUAGE_DATA_MAP.get(self).unwrap().name)
     }
 }
 

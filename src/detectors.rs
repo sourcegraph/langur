@@ -161,7 +161,7 @@ fn truncate_to_char_boundary(s: &str, mut max: usize) -> &str {
 #[cfg(test)]
 mod tests {
     use super::filter_candidates;
-    use crate::{ids, LANGUAGE_DATA_MAP};
+    use crate::ids;
 
     use super::*;
     use std::fs;
@@ -269,13 +269,13 @@ mod tests {
     }
 
     #[test]
-    fn test_debug_print() {
-        let l1 = ids::PLpgSQL;
-        println!("{:?}", l1);
-        let l2 = Language::try_from(274).unwrap();
-        println!("{:?}", l2);
-        assert_eq!(l1, l2);
-        LANGUAGE_DATA_MAP.get(&l2).unwrap();
+    fn test_debug_no_panic() {
+        for language in Language::VARIANTS {
+            write!(std::io::sink(), "{:?}", language).unwrap();
+        }
+        for language in Language::DEPRECATED_VARIANTS {
+            write!(std::io::sink(), "{:?}", language).unwrap();
+        }
     }
 
     #[test]
