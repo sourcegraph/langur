@@ -51,5 +51,5 @@ entries to `deprecated_languages.yml`.[^1]
 [^1]: For other changes, you may need to tweak the schema
 in `deprecated_languages.yml` and adjust the codegen.
 
-After that, update the version tag and SHA in the Bazel configuration,
+After that, update the version tag and SHA in the `WORKSPACE` file,
 and re-run the [code generation step](#code-generation).
