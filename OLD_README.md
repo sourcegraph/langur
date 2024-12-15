@@ -1,6 +1,6 @@
 # hyperpolyglot
 ### A fast programming language detector.
-Hyperpolyglot is a fast programming language detector written in Rust based on Github's [Linguist](https://github.com/github/linguist) Ruby library. Hyperpolyglot supports detecting the programming language of a file or detecting the programming language makeup of a directory. For more details on how the language detection is done, see the [Linguist](https://github.com/github/linguist) [README](https://github.com/github/linguist/blob/master/README.md).
+Hyperpolyglot is a fast programming language detector written in Rust based on GitHub's [Linguist](https://github.com/github/linguist) Ruby library. Hyperpolyglot supports detecting the programming language of a file or detecting the programming language makeup of a directory. For more details on how the language detection is done, see the [Linguist](https://github.com/github/linguist) [README](https://github.com/github/linguist/blob/master/README.md).
 
 ### CLI
 **Installing**
