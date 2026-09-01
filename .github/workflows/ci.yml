@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: bazelbuild/setup-bazelisk@v2
     - name: Mount bazel cache  # Optional
       uses: actions/cache@v3
@@ -34,7 +34,7 @@ jobs:
   cargo_build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
       # Keep version in sync with WORKSPACE file
     - uses: dtolnay/rust-toolchain@1.68.0
     - name: Cargo cache
