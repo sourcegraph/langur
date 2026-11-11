@@ -10,10 +10,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: bazelbuild/setup-bazelisk@v2
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+    - uses: bazelbuild/setup-bazelisk@95c9bf48d0c570bb3e28e57108f3450cd67c1a44 # v2.0.0
     - name: Mount bazel cache  # Optional
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
       with:
         path: "~/.cache/bazel"
         key: ${{ runner.os }}-${{ hashFiles('Cargo.Bazel.lock') }}-bazel
@@ -34,11 +34,11 @@ jobs:
   cargo_build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
       # Keep version in sync with WORKSPACE file
-    - uses: dtolnay/rust-toolchain@1.68.0
+    - uses: dtolnay/rust-toolchain@2d1f20b2ad675ea983a83d9ff0af78ccc46ebf22 # 1.68.0
     - name: Cargo cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
       with:
         path: "target"
         key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-cargo
